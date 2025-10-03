@@ -217,7 +217,17 @@ const transactionsSlice = createSlice({
       })
       .addCase(addTransaction.fulfilled, (state, action) => {
         
+        // Adicionar nova transação e reordenar
         state.transactions.unshift(action.payload);
+        state.transactions.sort((a, b) => {
+          // Primeiro por data da transação
+          const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+          if (dateComparison !== 0) {
+            return dateComparison;
+          }
+          // Se a data for igual, ordenar por createdAt (mais recente primeiro)
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
       })
       .addCase(updateTransaction.fulfilled, (state, action) => {
         const index = state.transactions.findIndex(t => t.id === action.payload.id);
