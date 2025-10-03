@@ -7,7 +7,7 @@ import {
   Alert,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { RootState } from '../../store';
 import { addTransaction, updateTransaction } from '../../store/slices/transactionsSlice';
 import { Transaction, TransactionFormData } from '../../types/transaction';
@@ -31,10 +31,14 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
   const { loading: transactionsLoading } = useSelector((state: RootState) => state.transactions);
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const isEditing = route?.params?.isEditing || false;
-  const transaction = route?.params?.transaction;
+  const hasValidEditParams =
+    !!(route?.params?.transaction?.id) &&
+    route?.params?.isEditing === true;
 
-  const [formData, setFormData] = useState<TransactionFormData>({
+  const isEditing = hasValidEditParams;
+  const transaction = hasValidEditParams ? route?.params?.transaction : undefined;
+
+  const initialForm: TransactionFormData = {
     description: '',
     amount: 0,
     type: 'expense',
@@ -43,8 +47,9 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
     receiptUrl: '',
     tags: [],
     notes: '',
-  });
+  };
 
+  const [formData, setFormData] = useState<TransactionFormData>(initialForm);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<{
@@ -77,8 +82,28 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
         tags: transaction.tags || [],
         notes: transaction.notes || '',
       });
+    } else {
+      setFormData(initialForm);
+      setSelectedFile(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transaction, isEditing]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!hasValidEditParams) {
+        setFormData(initialForm);
+        setSelectedFile(null);
+      }
+
+      return () => {
+        (navigation as any)?.setParams?.({
+          transaction: undefined,
+          isEditing: undefined,
+        });
+      };
+    }, [hasValidEditParams, navigation])
+  );
 
   const validateForm = (): boolean => {
     return validate(formData);
@@ -95,7 +120,11 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
     setSelectedFile(file);
   };
 
-  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success', shouldRedirect = false) => {
+  const showToast = (
+    message: string,
+    type: 'success' | 'error' | 'warning' | 'info' = 'success',
+    shouldRedirect = false
+  ) => {
     setToast({
       visible: true,
       message,
@@ -138,24 +167,40 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
           ...transaction,
           ...transactionData,
         }) as any);
+
+        (navigation as any)?.setParams?.({ transaction: undefined, isEditing: undefined });
+
         showToast('Transação atualizada! Redirecionando...', 'success', true);
       } else {
         await dispatch(addTransaction(transactionData) as any);
+
+        (navigation as any)?.setParams?.({ transaction: undefined, isEditing: undefined });
+
         showToast('Transação adicionada! Redirecionando...', 'success', true);
-        setFormData({
-          description: '',
-          amount: 0,
-          type: 'expense',
-          category: '',
-          date: new Date().toISOString().split('T')[0],
-          receiptUrl: '',
-          tags: [],
-          notes: '',
-        });
-        setSelectedFile(null);
       }
-    } catch (error) {
-      showToast('Não foi possível salvar a transação', 'error');
+
+      setFormData(initialForm);
+      setSelectedFile(null);
+    } catch (error: any) {
+
+      // Tratar erros específicos
+      let errorMessage = 'Não foi possível salvar a transação';
+
+      if (error?.message) {
+        if (error.message.includes('upload')) {
+          errorMessage = 'Erro no upload do comprovante. Tente novamente com um arquivo menor ou diferente.';
+        } else if (error.message.includes('Firebase Storage')) {
+          errorMessage = 'Erro no armazenamento. Verifique sua conexão e tente novamente.';
+        } else if (error.message.includes('autorizado') || error.message.includes('permissão')) {
+          errorMessage = 'Erro de permissão. Faça login novamente.';
+        } else if (error.message.includes('conexão') || error.message.includes('Network')) {
+          errorMessage = 'Erro de conexão. Verifique sua internet.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      showToast(errorMessage, 'error');
     } finally {
       setIsSubmitting(false);
     }
