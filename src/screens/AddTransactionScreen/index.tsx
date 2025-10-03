@@ -168,19 +168,26 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
           ...transactionData,
         }) as any);
 
-        (navigation as any)?.setParams?.({ transaction: undefined, isEditing: undefined });
-
         showToast('Transação atualizada! Redirecionando...', 'success', true);
+
+        // Limpar formulário após delay para permitir que o usuário veja a confirmação
+        setTimeout(() => {
+          setFormData(initialForm);
+          setSelectedFile(null);
+          (navigation as any)?.setParams?.({ transaction: undefined, isEditing: undefined });
+        }, 2000);
       } else {
         await dispatch(addTransaction(transactionData) as any);
 
-        (navigation as any)?.setParams?.({ transaction: undefined, isEditing: undefined });
-
         showToast('Transação adicionada! Redirecionando...', 'success', true);
-      }
 
-      setFormData(initialForm);
-      setSelectedFile(null);
+        // Limpar formulário após delay para permitir que o usuário veja a confirmação
+        setTimeout(() => {
+          setFormData(initialForm);
+          setSelectedFile(null);
+          (navigation as any)?.setParams?.({ transaction: undefined, isEditing: undefined });
+        }, 2000);
+      }
     } catch (error: any) {
 
       // Tratar erros específicos
