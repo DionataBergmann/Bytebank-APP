@@ -9,6 +9,9 @@ import {
   RefreshControl,
   ActivityIndicator,
   Linking,
+  Share,
+  Platform,
+  Clipboard,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
@@ -19,7 +22,7 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Ionicons } from '@expo/vector-icons';
 import { AdvancedFilters } from '../../components/forms';
 import { SearchBar, Modal, Toast, Logo } from '../../components/shared';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 const TransactionsScreen: React.FC = () => {
   const dispatch = useDispatch();
@@ -75,6 +78,15 @@ const TransactionsScreen: React.FC = () => {
 
     }
   }, [user]); // Apenas dependência do usuário
+
+  // Recarregar transações quando a tela ganhar foco (útil após editar transação)
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        loadTransactions(1);
+      }
+    }, [user, loadTransactions])
+  );
 
 
   const onRefresh = async () => {
@@ -166,12 +178,59 @@ const TransactionsScreen: React.FC = () => {
     setTooltipText('');
   };
 
-  const handleDownloadReceipt = (receiptUrl: string) => {
-    // Abrir o arquivo no navegador ou app apropriado
-    Linking.openURL(receiptUrl).catch(err => {
-      console.error('Erro ao abrir arquivo:', err);
+  const handleDownloadReceipt = async (receiptUrl: string) => {
+    try {
+      // Verificar se é base64 (método de último recurso)
+      if (receiptUrl.startsWith('data:application/pdf;base64,')) {
+        // Para base64, mostrar opções ao usuário
+        Alert.alert(
+          'Comprovante PDF',
+          'Este comprovante foi salvo como base64. Como deseja abrir?',
+          [
+            {
+              text: 'Compartilhar',
+              onPress: async () => {
+                try {
+                  // Tentar compartilhar diretamente
+                  await Share.share({
+                    title: 'Comprovante PDF',
+                    message: 'Comprovante da transação',
+                    url: receiptUrl,
+                  });
+                } catch (error) {
+                  // Se falhar, mostrar erro mais específico
+                  showToast('Erro: Formato de arquivo pode estar corrompido', 'error');
+                }
+              }
+            },
+            {
+              text: 'Copiar Link',
+              onPress: () => {
+                try {
+                  Clipboard.setString(receiptUrl);
+                  showToast('Link copiado! Cole na barra de endereço do navegador', 'info');
+                } catch (error) {
+                  showToast('Erro ao copiar link', 'error');
+                }
+              }
+            },
+            {
+              text: 'Cancelar',
+              style: 'cancel'
+            }
+          ]
+        );
+      } else {
+        // Para URLs do Firebase Storage, abrir normalmente
+        Linking.openURL(receiptUrl).catch(err => {
+          console.error('Erro ao abrir arquivo:', err);
+          showToast('Erro ao abrir arquivo', 'error');
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao processar arquivo:', error);
       showToast('Erro ao abrir arquivo', 'error');
-    });
+    }
   };
 
   const handleApplyFilters = async (newFilters: TransactionFilters) => {
@@ -235,17 +294,6 @@ const TransactionsScreen: React.FC = () => {
           ]}>
             {item.type === 'income' ? '+' : '-'}{formatCurrency(item.amount)}
           </Text>
-          <View style={styles.transactionIcons}>
-            {item.receiptUrl && (
-              <TouchableOpacity
-                onPress={() => handleDownloadReceipt(item.receiptUrl!)}
-                style={styles.receiptButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="receipt" size={16} color={colors.info} />
-              </TouchableOpacity>
-            )}
-          </View>
         </View>
       </TouchableOpacity>
 
@@ -261,13 +309,25 @@ const TransactionsScreen: React.FC = () => {
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity
-        style={styles.deleteButton}
-        onPress={() => handleDeleteTransaction(item)}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="trash-outline" size={20} color={colors.error} />
-      </TouchableOpacity>
+      <View style={styles.actionButtons}>
+        {item.receiptUrl && (
+          <TouchableOpacity
+            onPress={() => handleDownloadReceipt(item.receiptUrl!)}
+            style={styles.receiptButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="download-outline" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => handleDeleteTransaction(item)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="trash-outline" size={20} color={colors.error} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -525,12 +585,6 @@ const styles = StyleSheet.create({
   transactionRight: {
     alignItems: 'flex-end',
   },
-  transactionIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    gap: 8,
-  },
   tooltipTrigger: {
     position: 'absolute',
     top: 8,
@@ -590,13 +644,25 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  actionButtons: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+  },
   deleteButton: {
     padding: 8,
-    marginLeft: 8,
     borderRadius: 6,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  receiptButton: {
+    padding: 4,
+    borderRadius: 6,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: -4,
   },
   deleteModalContent: {
     alignItems: 'center',
@@ -655,10 +721,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.white,
-  },
-  receiptButton: {
-    padding: 4,
-    marginLeft: 8,
   },
 });
 

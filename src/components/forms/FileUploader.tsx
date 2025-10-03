@@ -25,19 +25,50 @@ export const FileUploader: React.FC<FileUploaderProps> = ({
       const result = await DocumentPicker.getDocumentAsync({
         type: acceptTypes,
         copyToCacheDirectory: true,
+        multiple: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
 
+        if (!file.name) {
+          throw new Error('Nome do arquivo não encontrado');
+        }
+
+        if (!file.size || file.size === 0) {
+          throw new Error('Arquivo vazio ou corrompido');
+        }
+
         // Verificar tamanho do arquivo
-        if (file.size && file.size > maxSize * 1024 * 1024) {
-          throw new Error(`Arquivo muito grande. Tamanho máximo: ${maxSize}MB`);
+        if (file.size > maxSize * 1024 * 1024) {
+          throw new Error(`Arquivo muito grande. Tamanho máximo: ${maxSize}MB. Tamanho atual: ${(file.size / 1024 / 1024).toFixed(1)}MB`);
+        }
+
+        // Verificar tipo MIME se disponível
+        if (file.mimeType) {
+          const isAllowedType = acceptTypes.some(type => {
+            if (type.endsWith('/*')) {
+              return file.mimeType?.startsWith(type.slice(0, -1));
+            }
+            return file.mimeType === type;
+          });
+
+          if (!isAllowedType) {
+            throw new Error(`Tipo de arquivo não suportado. Tipos permitidos: ${acceptTypes.join(', ')}`);
+          }
+        }
+
+        // Verificar extensão do arquivo como fallback
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
+        const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+
+        if (fileExtension && !allowedExtensions.includes(fileExtension)) {
+          throw new Error(`Extensão não suportada. Use: ${allowedExtensions.join(', ')}`);
         }
 
         onFileSelect(file);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao selecionar arquivo:', error);
       // Aqui você pode adicionar um toast ou alert para mostrar o erro
     }
