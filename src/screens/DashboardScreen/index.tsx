@@ -301,6 +301,7 @@ const DashboardScreen: React.FC = () => {
                   title="Top 5 Categorias de Despesas"
                   height={200}
                   showGradient={true}
+                  spacing={20}
                 />
               </AnimatedCard>
             );

@@ -35,7 +35,7 @@ const CustomBarChart: React.FC<BarChartProps> = ({
   showGradient = true,
   showValuesAsTopLabel = true,
   barWidth = 30,
-  spacing = 20,
+  spacing,
   color = colors.primary,
   gradientColor = colors.primaryDark,
 }) => {
@@ -93,7 +93,7 @@ const CustomBarChart: React.FC<BarChartProps> = ({
           width={width - 140}
           height={height + 50}
           barWidth={40}
-          spacing={80}
+          spacing={spacing || 80}
           initialSpacing={20}
           endSpacing={20}
           frontColor={color}
@@ -120,17 +120,6 @@ const CustomBarChart: React.FC<BarChartProps> = ({
             // Bar pressed
           }}
         />
-
-        {/* Labels customizados para o eixo X */}
-        <View style={styles.customLabelsContainer}>
-          {data.map((item, index) => (
-            <View key={index} style={styles.customLabelItem}>
-              <Text style={styles.customLabelText} numberOfLines={1}>
-                {item.label}
-              </Text>
-            </View>
-          ))}
-        </View>
       </View>
     </View>
   );

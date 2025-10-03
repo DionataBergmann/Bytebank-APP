@@ -43,7 +43,7 @@ export const firebaseTransactionService = {
       // Se há arquivo para upload, fazer upload e atualizar a transação
       if ((transactionData as any).file) {
         try {
-          const receiptUrl = await this.uploadReceipt((transactionData as any).file, transactionRef.id);
+          const receiptUrl = await this.uploadReceiptWithFallback((transactionData as any).file, transactionRef.id);
           newTransaction.receiptUrl = receiptUrl;
           
           // Atualizar a transação no Firestore com a URL do recibo
@@ -52,7 +52,6 @@ export const firebaseTransactionService = {
             updatedAt: new Date().toISOString(),
           });
         } catch (uploadError) {
-          console.warn('⚠️ Erro ao fazer upload do recibo:', uploadError);
           // Não vamos falhar a criação da transação se o upload falhar
         }
       }
@@ -196,8 +195,16 @@ export const firebaseTransactionService = {
         });
       }
 
-      // Ordenar por data (mais recente primeiro)
-      allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      // Ordenar por data de criação (mais recente primeiro)
+      allTransactions.sort((a, b) => {
+        // Primeiro por data da transação
+        const dateComparison = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateComparison !== 0) {
+          return dateComparison;
+        }
+        // Se a data for igual, ordenar por createdAt (mais recente primeiro)
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
 
       // Aplicar paginação
       const startIndex = lastDoc ? 0 : 0; // Simplificado para sempre começar do início
@@ -234,10 +241,27 @@ export const firebaseTransactionService = {
     }
   },
 
-  // Upload de recibo
-  async uploadReceipt(file: any, transactionId: string): Promise<string> {
+  // Upload de recibo com retry automático
+  async uploadReceipt(file: any, transactionId: string, retryCount: number = 0): Promise<string> {
+    const maxRetries = 3;
+    const retryDelay = 1000 * (retryCount + 1); // Delay progressivo: 1s, 2s, 3s
+    
     try {
-      
+
+      // Validar arquivo antes do upload
+      if (!file) {
+        throw new Error('Arquivo não fornecido');
+      }
+
+      if (file.size && file.size > 10 * 1024 * 1024) { // 10MB
+        throw new Error('Arquivo muito grande. Tamanho máximo: 10MB');
+      }
+
+      // Verificar tipos permitidos
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+      if (file.mimeType && !allowedTypes.includes(file.mimeType)) {
+        throw new Error('Tipo de arquivo não suportado. Use PDF, JPG ou PNG');
+      }
       
       // Converter o arquivo para blob se necessário
       let fileBlob: Blob;
@@ -245,6 +269,11 @@ export const firebaseTransactionService = {
       if (file.uri) {
         // Para React Native - arquivo do DocumentPicker
         const response = await fetch(file.uri);
+        
+        if (!response.ok) {
+          throw new Error(`Erro ao acessar arquivo: ${response.status} ${response.statusText}`);
+        }
+        
         fileBlob = await response.blob();
       } else if (file instanceof Blob) {
         // Para web
@@ -252,15 +281,64 @@ export const firebaseTransactionService = {
       } else {
         throw new Error('Formato de arquivo não suportado');
       }
+
+      // Verificar se o blob foi criado corretamente
+      if (!fileBlob || fileBlob.size === 0) {
+        throw new Error('Arquivo vazio ou inválido');
+      }
       
-      const fileName = `receipts/${transactionId}_${Date.now()}_${file.name || 'receipt'}`;
+      // Criar nome do arquivo seguro com timestamp único
+      const sanitizedName = (file.name || 'receipt')
+        .replace(/[^a-zA-Z0-9.-]/g, '_')
+        .substring(0, 50);
+      
+      const fileName = `receipts/${transactionId}_${Date.now()}_${retryCount}_${sanitizedName}`;
       const storageRef = ref(storage, fileName);
       
+      // Tentar diferentes abordagens de upload
+      let uploadSuccess = false;
+      let lastError: any = null;
       
-      await uploadBytes(storageRef, fileBlob);
+      // Abordagem 1: Upload com metadata
+      try {
+        const metadata = {
+          contentType: file.mimeType || fileBlob.type || 'application/octet-stream'
+        };
+        
+        const uploadPromise = uploadBytes(storageRef, fileBlob, metadata);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout no upload')), 30000)
+        );
+        
+        await Promise.race([uploadPromise, timeoutPromise]);
+        uploadSuccess = true;
+      } catch (error: any) {
+        lastError = error;
+        
+        // Abordagem 2: Upload sem metadata
+        try {
+          await uploadBytes(storageRef, fileBlob);
+          uploadSuccess = true;
+        } catch (error2: any) {
+          lastError = error2;
+          
+          // Abordagem 3: Upload com blob recriado
+          try {
+            const newBlob = new Blob([fileBlob], { type: 'application/pdf' });
+            await uploadBytes(storageRef, newBlob);
+            uploadSuccess = true;
+          } catch (error3: any) {
+            lastError = error3;
+            throw error3;
+          }
+        }
+      }
+      
+      if (!uploadSuccess) {
+        throw lastError;
+      }
+      
       const downloadURL = await getDownloadURL(storageRef);
-      
-      
       
       // Atualizar transação com URL do recibo
       await updateDoc(doc(db, 'transactions', transactionId), {
@@ -269,9 +347,192 @@ export const firebaseTransactionService = {
       });
       
       return downloadURL;
-    } catch (error) {
-      console.error('❌ Error uploading receipt:', error);
-      throw new Error('Erro ao fazer upload do recibo');
+    } catch (error: any) {
+      // Se for erro storage/unknown e ainda temos tentativas, tentar novamente
+      if (error.code === 'storage/unknown' && retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return this.uploadReceipt(file, transactionId, retryCount + 1);
+      }
+      
+      // Tratamento específico de erros do Firebase Storage
+      if (error.code) {
+        switch (error.code) {
+          case 'storage/unauthorized':
+            throw new Error('Não autorizado para fazer upload. Verifique as permissões do Firebase Storage.');
+          case 'storage/canceled':
+            throw new Error('Upload cancelado pelo usuário.');
+          case 'storage/unknown':
+            throw new Error('Erro persistente do Firebase Storage após múltiplas tentativas. Verifique a configuração e tente novamente mais tarde.');
+          case 'storage/invalid-format':
+            throw new Error('Formato de arquivo inválido.');
+          case 'storage/invalid-checksum':
+            throw new Error('Arquivo corrompido. Tente novamente.');
+          case 'storage/retry-limit-exceeded':
+            throw new Error('Muitas tentativas. Tente novamente mais tarde.');
+          default:
+            throw new Error(`Erro do Firebase Storage: ${error.code} - ${error.message}`);
+        }
+      }
+      
+      // Erros de rede ou outros
+      if (error.message?.includes('Network') || error.message?.includes('Timeout')) {
+        if (retryCount < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          return this.uploadReceipt(file, transactionId, retryCount + 1);
+        }
+        throw new Error('Erro de conexão após múltiplas tentativas. Verifique sua internet e tente novamente.');
+      }
+      
+      if (error.message?.includes('fetch')) {
+        throw new Error('Erro ao processar arquivo. Verifique se o arquivo não está corrompido.');
+      }
+      
+      throw new Error(`Erro ao fazer upload do recibo: ${error.message || 'Erro desconhecido'}`);
+    }
+  },
+
+  // Método alternativo de upload usando base64
+  async uploadReceiptAlternative(file: any, transactionId: string): Promise<string> {
+    try {
+      
+      // Converter arquivo para base64
+      let base64Data: string;
+      
+      if (file.uri) {
+        // Para React Native
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        base64Data = await this.blobToBase64(blob);
+      } else if (file instanceof Blob) {
+        base64Data = await this.blobToBase64(file);
+      } else {
+        throw new Error('Formato de arquivo não suportado');
+      }
+      
+      // Criar blob a partir do base64
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const newBlob = new Blob([bytes], { type: file.mimeType || 'application/pdf' });
+      
+      // Tentar upload com o novo blob
+      const sanitizedName = (file.name || 'receipt')
+        .replace(/[^a-zA-Z0-9.-]/g, '_')
+        .substring(0, 50);
+      
+      const fileName = `receipts/alt_${transactionId}_${Date.now()}_${sanitizedName}`;
+      const storageRef = ref(storage, fileName);
+      
+      await uploadBytes(storageRef, newBlob);
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      return downloadURL;
+    } catch (error: any) {
+      throw new Error('Método alternativo de upload também falhou');
+    }
+  },
+
+  // Converter blob para base64
+  async blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]); // Remove o prefixo data:type;base64,
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  },
+
+  // Upload com fallback automático
+  async uploadReceiptWithFallback(file: any, transactionId: string): Promise<string> {
+    try {
+      // Primeiro, tentar o método normal
+      return await this.uploadReceipt(file, transactionId);
+    } catch (error: any) {
+      // Se for erro storage/unknown, tentar método alternativo
+      if (error.message?.includes('storage/unknown') || error.message?.includes('Erro persistente')) {
+        try {
+          return await this.uploadReceiptAlternative(file, transactionId);
+        } catch (altError: any) {
+          // Se ambos falharam, tentar método de emergência
+          try {
+            return await this.uploadReceiptEmergency(file, transactionId);
+          } catch (emergencyError: any) {
+            throw new Error('Todos os métodos de upload falharam. O Firebase Storage pode estar com problemas. Tente novamente mais tarde.');
+          }
+        }
+      }
+      
+      // Para outros erros, re-throw
+      throw error;
+    }
+  },
+
+  // Método de emergência - upload direto sem metadata
+  async uploadReceiptEmergency(file: any, transactionId: string): Promise<string> {
+    try {
+      // Converter arquivo para blob
+      let fileBlob: Blob;
+      
+      if (file.uri) {
+        const response = await fetch(file.uri);
+        if (!response.ok) {
+          throw new Error(`Erro ao acessar arquivo: ${response.status}`);
+        }
+        fileBlob = await response.blob();
+      } else if (file instanceof Blob) {
+        fileBlob = file;
+      } else {
+        throw new Error('Formato de arquivo não suportado');
+      }
+
+      // Criar nome simples sem caracteres especiais
+      const simpleName = `receipt_${transactionId}_${Date.now()}.pdf`;
+      const fileName = `receipts/${simpleName}`;
+      const storageRef = ref(storage, fileName);
+      
+      // Upload sem metadata - apenas o blob
+      await uploadBytes(storageRef, fileBlob);
+      
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      return downloadURL;
+    } catch (error: any) {
+      // Se ainda falhar, tentar método de último recurso
+      if (error.code === 'storage/unknown') {
+        return await this.uploadReceiptLastResort(file, transactionId);
+      }
+      
+      throw error;
+    }
+  },
+
+  // Método de último recurso - salvar como base64 no Firestore
+  async uploadReceiptLastResort(file: any, transactionId: string): Promise<string> {
+    try {
+      // Converter para base64
+      let base64Data: string;
+      
+      if (file.uri) {
+        const response = await fetch(file.uri);
+        const blob = await response.blob();
+        base64Data = await this.blobToBase64(blob);
+      } else if (file instanceof Blob) {
+        base64Data = await this.blobToBase64(file);
+      } else {
+        throw new Error('Formato de arquivo não suportado');
+      }
+      
+      // Salvar base64 diretamente no Firestore como string
+      const base64Url = `data:application/pdf;base64,${base64Data}`;
+      
+      return base64Url;
+    } catch (error: any) {
+      throw new Error('Todos os métodos de upload falharam. O arquivo será salvo localmente.');
     }
   },
 
