@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -57,6 +58,14 @@ const DashboardScreen: React.FC = () => {
 
     }
   }, [loadDashboardData, user]); // Dependência do usuário
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        loadDashboardData();
+      }
+    }, [user, loadDashboardData])
+  );
 
   const handleRefresh = () => {
     if (user) {
