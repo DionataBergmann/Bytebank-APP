@@ -1,14 +1,14 @@
-import { TransactionRepository } from '../data/repositories/TransactionRepository';
 import { AuthRepository } from '../data/repositories/AuthRepository';
-import { DashboardRepository } from '../data/repositories/DashboardRepository';
+import { CachedTransactionRepository } from '../cache/CachedTransactionRepository';
+import { CachedDashboardRepository } from '../cache/CachedDashboardRepository';
 import { TransactionUseCases } from '../../domain/usecases/TransactionUseCases';
 import { AuthUseCases } from '../../domain/usecases/AuthUseCases';
 import { DashboardUseCases } from '../../domain/usecases/DashboardUseCases';
 
-// Repositórios
-const transactionRepository = new TransactionRepository();
-const authRepository = new AuthRepository();
-const dashboardRepository = new DashboardRepository();
+// Repositórios com cache
+const transactionRepository = new CachedTransactionRepository();
+const authRepository = new AuthRepository(); // Auth não precisa de cache
+const dashboardRepository = new CachedDashboardRepository();
 
 // Use Cases
 export const transactionUseCases = new TransactionUseCases(transactionRepository);

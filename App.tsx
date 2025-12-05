@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { firebaseInitService } from './src/services/firebaseInitService';
 import { testFirebaseConnection } from './src/utils/firebaseTest';
 import { useAuthState } from './src/hooks';
+import { CacheManager } from './src/infrastructure/cache/CacheManager';
 import './src/config/firebase'; // Inicializar Firebase
 
 // Componente interno que usa o hook de autenticação
@@ -26,6 +27,9 @@ export default function App() {
   useEffect(() => {
     // Inicializar Firebase quando o app carregar
     const initializeApp = async () => {
+      // Inicializar cache (limpa itens expirados)
+      await CacheManager.initialize();
+
       await firebaseInitService.initialize();
 
       // Testar conexão com Firebase (apenas em desenvolvimento)
