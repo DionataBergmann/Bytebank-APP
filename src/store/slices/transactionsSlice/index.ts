@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Transaction, TransactionFilters, TransactionFormData } from '../../../types/transaction';
-import { firebaseTransactionService } from '../../../services/firebaseTransactionService';
+import { Transaction, TransactionFilters, TransactionFormData } from '../../../domain/entities/Transaction';
+import { transactionUseCases } from '../../../infrastructure/di/container';
 
 interface TransactionsState {
   transactions: Transaction[];
@@ -52,7 +52,7 @@ export const fetchTransactions = createAsyncThunk(
     // Se não é primeira página mas não tem lastDoc, forçar primeira página
     if (!isFirstPage && !lastDoc) {
       
-      const response = await firebaseTransactionService.getTransactions(
+      const response = await transactionUseCases.getTransactions(
         userId,
         state.transactions.filters,
         20,
@@ -67,7 +67,7 @@ export const fetchTransactions = createAsyncThunk(
       };
     }
     
-    const response = await firebaseTransactionService.getTransactions(
+    const response = await transactionUseCases.getTransactions(
       userId,
       state.transactions.filters,
       20,
@@ -101,7 +101,7 @@ export const addTransaction = createAsyncThunk(
     }
 
     
-    const response = await firebaseTransactionService.createTransaction(transaction, userId);
+    const response = await transactionUseCases.createTransaction(transaction, userId);
     
     
     return response;
@@ -111,7 +111,8 @@ export const addTransaction = createAsyncThunk(
 export const updateTransaction = createAsyncThunk(
   'transactions/updateTransaction',
   async (transaction: Transaction) => {
-    const response = await firebaseTransactionService.updateTransaction(transaction.id, transaction);
+    const { id, ...transactionData } = transaction;
+    const response = await transactionUseCases.updateTransaction(id, transactionData);
     return response;
   }
 );
@@ -119,7 +120,7 @@ export const updateTransaction = createAsyncThunk(
 export const deleteTransaction = createAsyncThunk(
   'transactions/deleteTransaction',
   async (id: string) => {
-    await firebaseTransactionService.deleteTransaction(id);
+    await transactionUseCases.deleteTransaction(id);
     return id;
   }
 );
@@ -127,7 +128,7 @@ export const deleteTransaction = createAsyncThunk(
 export const uploadReceipt = createAsyncThunk(
   'transactions/uploadReceipt',
   async ({ file, transactionId }: { file: any; transactionId: string }) => {
-    const response = await firebaseTransactionService.uploadReceipt(file, transactionId);
+    const response = await transactionUseCases.uploadReceipt(file, transactionId);
     return { transactionId, receiptUrl: response };
   }
 );

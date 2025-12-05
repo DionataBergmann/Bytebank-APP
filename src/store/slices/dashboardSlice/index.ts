@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { DashboardData, ChartData } from '../../../types/dashboard';
-import { firebaseDashboardService } from '../../../services/firebaseDashboardService';
+import { DashboardData, ChartData } from '../../../domain/entities/Dashboard';
+import { dashboardUseCases } from '../../../infrastructure/di/container';
 
 interface DashboardState {
   data: DashboardData | null;
@@ -37,7 +37,7 @@ export const fetchDashboardData = createAsyncThunk(
       throw new Error('Usuário não autenticado');
     }
 
-    const response = await firebaseDashboardService.getDashboardData(userId, period, selectedMonth);
+    const response = await dashboardUseCases.getDashboardData(userId, period, selectedMonth);
     
     
     return response;
@@ -61,7 +61,7 @@ export const fetchChartData = createAsyncThunk(
       throw new Error('Usuário não autenticado');
     }
 
-    const response = await firebaseDashboardService.getChartData(userId, period, selectedMonth);
+    const response = await dashboardUseCases.getChartData(userId, period, selectedMonth);
     
     
     return response;

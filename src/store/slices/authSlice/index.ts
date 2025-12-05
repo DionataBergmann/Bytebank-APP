@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { User } from '../../../types/auth';
-import { firebaseAuthService } from '../../../services/firebaseAuthService';
+import { User } from '../../../domain/entities/User';
+import { authUseCases } from '../../../infrastructure/di/container';
 
 interface AuthState {
   user: User | null;
@@ -21,7 +21,7 @@ const initialState: AuthState = {
 export const login = createAsyncThunk(
   'auth/login',
   async (credentials: { email: string; password: string }) => {
-    const response = await firebaseAuthService.login(credentials);
+    const response = await authUseCases.login(credentials);
     return response;
   }
 );
@@ -29,7 +29,7 @@ export const login = createAsyncThunk(
 export const register = createAsyncThunk(
   'auth/register',
   async (data: { name: string; email: string; password: string; confirmPassword: string }) => {
-    const response = await firebaseAuthService.register(data);
+    const response = await authUseCases.register(data);
     return response;
   }
 );
@@ -37,14 +37,14 @@ export const register = createAsyncThunk(
 export const logout = createAsyncThunk(
   'auth/logout',
   async () => {
-    await firebaseAuthService.logout();
+    await authUseCases.logout();
   }
 );
 
 export const getCurrentUser = createAsyncThunk(
   'auth/getCurrentUser',
   async () => {
-    const response = await firebaseAuthService.getCurrentUser();
+    const response = await authUseCases.getCurrentUser();
     return response;
   }
 );
@@ -52,21 +52,21 @@ export const getCurrentUser = createAsyncThunk(
 export const forgotPassword = createAsyncThunk(
   'auth/forgotPassword',
   async (email: string) => {
-    await firebaseAuthService.forgotPassword(email);
+    await authUseCases.forgotPassword(email);
   }
 );
 
 export const changePassword = createAsyncThunk(
   'auth/changePassword',
   async (data: { currentPassword: string; newPassword: string }) => {
-    await firebaseAuthService.changePassword(data.currentPassword, data.newPassword);
+    await authUseCases.changePassword(data.currentPassword, data.newPassword);
   }
 );
 
 export const updateUserProfile = createAsyncThunk(
   'auth/updateProfile',
   async (data: Partial<User>) => {
-    const response = await firebaseAuthService.updateProfile(data);
+    const response = await authUseCases.updateProfile(data);
     return response;
   }
 );
