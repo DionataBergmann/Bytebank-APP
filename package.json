@@ -45,7 +45,8 @@
     "react-native-screens": "^4.13.1",
     "react-native-svg": "^15.11.2",
     "react-redux": "^9.2.0",
-    "redux": "^5.0.1"
+    "redux": "^5.0.1",
+    "reselect": "^5.1.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
