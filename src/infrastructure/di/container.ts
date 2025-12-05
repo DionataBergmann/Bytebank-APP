@@ -5,7 +5,7 @@ import { TransactionUseCases } from '../../domain/usecases/TransactionUseCases';
 import { AuthUseCases } from '../../domain/usecases/AuthUseCases';
 import { DashboardUseCases } from '../../domain/usecases/DashboardUseCases';
 
-// Repositórios
+// Repositórios (agora com cache integrado)
 const transactionRepository = new TransactionRepository();
 const authRepository = new AuthRepository();
 const dashboardRepository = new DashboardRepository();
