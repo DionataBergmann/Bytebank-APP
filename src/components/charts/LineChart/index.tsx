@@ -184,5 +184,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CustomLineChart;
+export default React.memo(CustomLineChart);
 

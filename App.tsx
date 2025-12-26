@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
-import { Provider } from 'react-redux';
+import { Provider, useSelector } from 'react-redux';
 import { store } from './src/store';
 import AppNavigator from './src/navigation/AppNavigator';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,11 +9,21 @@ import { firebaseInitService } from './src/services/firebaseInitService';
 import { testFirebaseConnection } from './src/utils/firebaseTest';
 import { useAuthState } from './src/hooks';
 import { CacheManager } from './src/infrastructure/cache/CacheManager';
+import { PreloadData } from './src/utils/preloadData';
+import { RootState } from './src/store/types';
 import './src/config/firebase'; // Inicializar Firebase
 
 // Componente interno que usa o hook de autenticação
 const AppContent: React.FC = () => {
   useAuthState();
+  const { user } = useSelector((state: RootState) => state.auth);
+
+  // Pré-carregar dados quando usuário estiver autenticado
+  useEffect(() => {
+    if (user?.id) {
+      PreloadData.preloadAfterLogin(user.id);
+    }
+  }, [user?.id]);
 
   return (
     <NavigationContainer>
