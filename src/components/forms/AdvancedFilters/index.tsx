@@ -414,4 +414,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AdvancedFilters;
+export default React.memo(AdvancedFilters);

@@ -39,3 +39,6 @@ export const CacheTTL = {
   INFINITE: Number.MAX_SAFE_INTEGER, // Sem expiração
 } as const;
 
+
+
+

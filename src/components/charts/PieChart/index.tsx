@@ -148,5 +148,5 @@ const styles = StyleSheet.create({
   },
 });
 
-export default CustomPieChart;
+export default React.memo(CustomPieChart);
 

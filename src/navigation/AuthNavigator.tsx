@@ -1,10 +1,29 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import LoginScreen from '../screens/LoginScreen';
-import RegisterScreen from '../screens/RegisterScreen';
-// import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { colors } from '../utils/colors';
 
 const Stack = createNativeStackNavigator();
+
+// Loading fallback component
+const LoadingScreen: React.FC = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color={colors.primary} />
+  </View>
+);
+
+// Lazy loading de screens
+const LoginScreen = lazy(() => import('../screens/LoginScreen'));
+const RegisterScreen = lazy(() => import('../screens/RegisterScreen'));
+
+// Wrapper para Suspense
+const withSuspense = (Component: React.ComponentType<any>) => {
+  return (props: any) => (
+    <Suspense fallback={<LoadingScreen />}>
+      <Component {...props} />
+    </Suspense>
+  );
+};
 
 const AuthNavigator: React.FC = () => {
   return (
@@ -13,12 +32,20 @@ const AuthNavigator: React.FC = () => {
         headerShown: false,
       }}
     >
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      {/* <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} /> */}
+      <Stack.Screen name="Login" component={withSuspense(LoginScreen)} />
+      <Stack.Screen name="Register" component={withSuspense(RegisterScreen)} />
     </Stack.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+});
 
 export default AuthNavigator;
 

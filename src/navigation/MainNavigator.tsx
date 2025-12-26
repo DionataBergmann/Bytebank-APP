@@ -1,13 +1,32 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import DashboardScreen from '../screens/DashboardScreen';
-import TransactionsScreen from '../screens/TransactionsScreen';
-import AddTransactionScreen from '../screens/AddTransactionScreen';
-import ProfileScreen from '../screens/ProfileScreen';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors } from '../utils/colors';
 
 const Tab = createBottomTabNavigator();
+
+// Loading fallback component
+const LoadingScreen: React.FC = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color={colors.primary} />
+  </View>
+);
+
+// Lazy loading de screens
+const DashboardScreen = lazy(() => import('../screens/DashboardScreen'));
+const TransactionsScreen = lazy(() => import('../screens/TransactionsScreen'));
+const AddTransactionScreen = lazy(() => import('../screens/AddTransactionScreen'));
+const ProfileScreen = lazy(() => import('../screens/ProfileScreen'));
+
+// Wrapper para Suspense
+const withSuspense = (Component: React.ComponentType<any>) => {
+  return (props: any) => (
+    <Suspense fallback={<LoadingScreen />}>
+      <Component {...props} />
+    </Suspense>
+  );
+};
 
 const MainNavigator: React.FC = () => {
   return (
@@ -41,31 +60,41 @@ const MainNavigator: React.FC = () => {
           height: 60,
         },
         headerShown: false,
+        lazy: true, // Lazy load das tabs
       })}
     >
       <Tab.Screen
         name="Dashboard"
-        component={DashboardScreen}
+        component={withSuspense(DashboardScreen)}
         options={{ title: 'Dashboard' }}
       />
       <Tab.Screen
         name="Transações"
-        component={TransactionsScreen}
+        component={withSuspense(TransactionsScreen)}
         options={{ title: 'Transações' }}
       />
       <Tab.Screen
         name="Adicionar"
-        component={AddTransactionScreen}
+        component={withSuspense(AddTransactionScreen)}
         options={{ title: 'Adicionar' }}
       />
       <Tab.Screen
         name="Perfil"
-        component={ProfileScreen}
+        component={withSuspense(ProfileScreen)}
         options={{ title: 'Perfil' }}
       />
     </Tab.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+});
 
 export default MainNavigator;
 

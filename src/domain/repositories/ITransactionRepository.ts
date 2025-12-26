@@ -15,3 +15,5 @@ export interface ITransactionRepository {
   getCategories(userId: string): Promise<string[]>;
 }
 
+
+
