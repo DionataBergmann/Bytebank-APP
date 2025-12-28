@@ -23,14 +23,37 @@ import { Ionicons } from '@expo/vector-icons';
 import { AdvancedFilters } from '../../components/forms';
 import { SearchBar, Modal, Toast, Logo } from '../../components/shared';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useReactiveTransactions } from '../../hooks';
+import { TransactionFilters as DomainTransactionFilters } from '../../domain/entities/Transaction';
 
 const TransactionsScreen: React.FC = () => {
   const dispatch = useDispatch();
   const navigation = useNavigation();
-  const { transactions, loading, error, filters, hasMore, currentPage } = useSelector(
+  const { transactions: reduxTransactions, loading: reduxLoading, error: reduxError, filters, hasMore, currentPage } = useSelector(
     (state: RootState) => state.transactions
   );
   const { user } = useSelector((state: RootState) => state.auth);
+  
+  // Observable reativo para atualizações em tempo real
+  const domainFilters: DomainTransactionFilters = {
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    category: filters.category,
+    search: filters.search,
+    type: filters.type,
+    minAmount: filters.minAmount,
+    maxAmount: filters.maxAmount,
+  };
+  
+  const { transactions: reactiveTransactions, loading: reactiveLoading } = useReactiveTransactions(
+    user?.id,
+    domainFilters
+  );
+  
+  // Usar dados reativos quando disponíveis, senão usar Redux
+  const transactions = reactiveTransactions.length > 0 ? reactiveTransactions : reduxTransactions;
+  const loading = reactiveLoading || reduxLoading;
+  const error = reduxError;
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
