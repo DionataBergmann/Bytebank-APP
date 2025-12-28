@@ -24,13 +24,26 @@ import {
   CashFlowChart
 } from '../../components/charts';
 import { AnimatedCard, MonthSelector, Logo } from '../../components/shared';
+import { useReactiveDashboard } from '../../hooks';
 
 const DashboardScreen: React.FC = () => {
   const dispatch = useDispatch();
-  const { data, charts, loading, error, selectedPeriod, selectedMonth } = useSelector(
+  const { data: reduxData, charts, loading: reduxLoading, error: reduxError, selectedPeriod, selectedMonth } = useSelector(
     (state: RootState) => state.dashboard
   );
   const { user } = useSelector((state: RootState) => state.auth);
+  
+  // Observable reativo para atualizações em tempo real do dashboard
+  const { data: reactiveData, loading: reactiveLoading } = useReactiveDashboard(
+    user?.id,
+    selectedPeriod === 'year' ? 'year' : selectedPeriod === 'week' ? 'week' : 'month',
+    selectedMonth
+  );
+  
+  // Usar dados reativos quando disponíveis, senão usar Redux
+  const data = reactiveData || reduxData;
+  const loading = reactiveLoading || reduxLoading;
+  const error = reduxError;
 
   const loadDashboardData = useCallback(async () => {
     try {
