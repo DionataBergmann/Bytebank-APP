@@ -15,6 +15,8 @@ import { colors } from '../../utils/colors';
 import { Button, Input, DatePicker, Toast, Logo } from '../../components/shared';
 import { TypeSelector, CategorySelector, FileUploader } from '../../components/forms';
 import { useFormValidation, commonValidationRules } from '../../hooks';
+import { CATEGORY_OPTIONS } from '../../constants/categories';
+import { validateCategory } from '../../constants/validation';
 
 interface AddTransactionScreenProps {
   route?: {
@@ -62,12 +64,15 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
     type: 'success',
   });
 
+  // Obter lista de categorias válidas
+  const validCategories = CATEGORY_OPTIONS.map(opt => opt.label);
+
   // Hook de validação
   const { validate, hasError, getError, clearError } = useFormValidation({
-    description: commonValidationRules.required,
+    description: commonValidationRules.description,
     amount: commonValidationRules.amount,
-    category: commonValidationRules.required,
-    date: commonValidationRules.required,
+    category: (category: string) => validateCategory(category, validCategories),
+    date: commonValidationRules.date,
   });
 
   useEffect(() => {
@@ -111,6 +116,8 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
 
   const handleInputChange = (field: keyof TransactionFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+
+    // Limpar erro do campo quando usuário começar a digitar
     if (hasError(field)) {
       clearError(field);
     }
@@ -251,10 +258,13 @@ const AddTransactionScreen: React.FC<AddTransactionScreenProps> = ({ route }) =>
           {/* Valor */}
           <Input
             label="Valor"
-            value={formData.amount.toString()}
-            onChangeText={(text) => handleInputChange('amount', parseFloat(text) || 0)}
+            value={formData.amount > 0 ? formData.amount.toString() : ''}
+            onChangeText={(text) => {
+              const numericValue = parseFloat(text.replace(',', '.')) || 0;
+              handleInputChange('amount', numericValue);
+            }}
             placeholder="0.00"
-            keyboardType="numeric"
+            keyboardType="decimal-pad"
             error={getError('amount')}
             required
           />
