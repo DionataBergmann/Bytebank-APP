@@ -1,6 +1,6 @@
 import { Observable, Subject } from 'rxjs';
 import { map, debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
-import { collection, query, where, orderBy, onSnapshot, QuerySnapshot, DocumentData } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, QuerySnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Transaction, TransactionFilters } from '../../domain/entities/Transaction';
 
@@ -32,22 +32,16 @@ export class TransactionObservable {
     return new Observable<Transaction[]>((subscriber) => {
       try {
         // Construir query base
-        // Nota: Firestore requer índice composto para múltiplos orderBy
-        // Usando apenas orderBy por date, que é o mais importante
+        // Nota: Firestore requer índice composto quando combina where + orderBy
+        // Para evitar necessidade de índices, fazemos apenas o filtro por userId
+        // e aplicamos ordenação e outros filtros no cliente
         let q = query(
           collection(db, 'transactions'),
-          where('userId', '==', userId),
-          orderBy('date', 'desc')
+          where('userId', '==', userId)
         );
 
-        // Aplicar filtros se fornecidos
-        if (filters?.type && filters.type !== 'all') {
-          q = query(q, where('type', '==', filters.type));
-        }
-
-        if (filters?.category) {
-          q = query(q, where('category', '==', filters.category));
-        }
+        // Não aplicamos filtros adicionais na query para evitar índices compostos
+        // Todos os filtros serão aplicados no cliente após receber os dados
 
         // Listener em tempo real do Firestore
         const unsubscribe = onSnapshot(
@@ -70,21 +64,38 @@ export class TransactionObservable {
               } as Transaction;
             });
 
-            // Aplicar filtros adicionais no cliente (data, busca, valor)
+            // Aplicar todos os filtros no cliente (evita necessidade de índices compostos)
             let filteredTransactions = transactions;
 
+            // Filtrar por tipo
+            if (filters?.type && filters.type !== 'all') {
+              filteredTransactions = filteredTransactions.filter(
+                (t) => t.type === filters.type
+              );
+            }
+
+            // Filtrar por categoria
+            if (filters?.category) {
+              filteredTransactions = filteredTransactions.filter(
+                (t) => t.category === filters.category
+              );
+            }
+
+            // Filtrar por data inicial
             if (filters?.startDate) {
               filteredTransactions = filteredTransactions.filter(
                 (t) => t.date >= filters.startDate!
               );
             }
 
+            // Filtrar por data final
             if (filters?.endDate) {
               filteredTransactions = filteredTransactions.filter(
                 (t) => t.date <= filters.endDate!
               );
             }
 
+            // Filtrar por busca (descrição)
             if (filters?.search) {
               const searchLower = filters.search.toLowerCase();
               filteredTransactions = filteredTransactions.filter((t) =>
@@ -92,17 +103,26 @@ export class TransactionObservable {
               );
             }
 
+            // Filtrar por valor mínimo
             if (filters?.minAmount !== undefined && filters.minAmount !== null) {
               filteredTransactions = filteredTransactions.filter(
                 (t) => t.amount >= filters.minAmount!
               );
             }
 
+            // Filtrar por valor máximo
             if (filters?.maxAmount !== undefined && filters.maxAmount !== null) {
               filteredTransactions = filteredTransactions.filter(
                 (t) => t.amount <= filters.maxAmount!
               );
             }
+
+            // Ordenar por data (mais recente primeiro)
+            filteredTransactions.sort((a, b) => {
+              const dateA = new Date(a.date).getTime();
+              const dateB = new Date(b.date).getTime();
+              return dateB - dateA; // Descendente
+            });
 
             subscriber.next(filteredTransactions);
           },
