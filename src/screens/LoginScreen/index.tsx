@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { Logo } from '../../components/shared';
+import { sanitizeEmail, sanitizeString } from '../../utils/sanitization';
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -55,8 +56,11 @@ const LoginScreen: React.FC = () => {
     }
 
     try {
+      // Sanitizar dados antes de enviar
+      const sanitizedEmail = sanitizeEmail(email);
+      const sanitizedPassword = sanitizeString(password);
 
-      const result = await dispatch(login({ email, password }) as any);
+      const result = await dispatch(login({ email: sanitizedEmail, password: sanitizedPassword }) as any);
 
     } catch (error: any) {
       console.error('❌ Erro no login:', error);
@@ -78,8 +82,16 @@ const LoginScreen: React.FC = () => {
   };
 
   const handleInputChange = (field: 'email' | 'password', value: string) => {
-    if (field === 'email') setEmail(value);
-    if (field === 'password') setPassword(value);
+    // Sanitizar input antes de armazenar
+    let sanitizedValue: string;
+    if (field === 'email') {
+      sanitizedValue = sanitizeEmail(value);
+      setEmail(sanitizedValue);
+    } else {
+      // Para senha, apenas remover caracteres de controle, mas manter caracteres especiais válidos
+      sanitizedValue = sanitizeString(value);
+      setPassword(sanitizedValue);
+    }
 
     // Limpar erro do campo quando usuário começar a digitar
     if (errors[field]) {

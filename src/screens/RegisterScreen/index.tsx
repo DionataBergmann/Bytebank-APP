@@ -18,6 +18,7 @@ import { colors } from '../../utils/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { sanitizeEmail, sanitizeAlphanumeric, sanitizeString } from '../../utils/sanitization';
 
 const RegisterScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -67,7 +68,18 @@ const RegisterScreen: React.FC = () => {
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    // Sanitizar input antes de armazenar
+    let sanitizedValue: string;
+    if (field === 'email') {
+      sanitizedValue = sanitizeEmail(value);
+    } else if (field === 'name') {
+      sanitizedValue = sanitizeAlphanumeric(value);
+    } else {
+      // Para senhas, apenas remover caracteres de controle, mas manter caracteres especiais válidos
+      sanitizedValue = sanitizeString(value);
+    }
+
+    setFormData(prev => ({ ...prev, [field]: sanitizedValue }));
 
     // Limpar erro do campo quando usuário começar a digitar
     if (errors[field]) {
@@ -86,8 +98,15 @@ const RegisterScreen: React.FC = () => {
     }
 
     try {
+      // Sanitizar dados antes de enviar
+      const sanitizedData = {
+        name: sanitizeAlphanumeric(formData.name),
+        email: sanitizeEmail(formData.email),
+        password: sanitizeString(formData.password),
+        confirmPassword: sanitizeString(formData.confirmPassword),
+      };
 
-      const result = await dispatch(register(formData) as any);
+      const result = await dispatch(register(sanitizedData) as any);
 
 
       Alert.alert(

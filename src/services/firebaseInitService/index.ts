@@ -1,6 +1,7 @@
 import { firebaseAuthService } from '../firebaseAuthService';
 import { store } from '../../store';
 import { setToken, getCurrentUser, logout } from '../../store/slices/authSlice';
+import { SessionManager } from '../../infrastructure/security/SessionManager';
 
 export const firebaseInitService = {
   // Inicializar Firebase e verificar autenticação
@@ -39,8 +40,8 @@ export const firebaseInitService = {
   // Verificar se o usuário está autenticado
   async checkAuthStatus(): Promise<boolean> {
     try {
-      const user = await firebaseAuthService.getCurrentUser();
-      return user !== null;
+      // Usar SessionManager para validar sessão
+      return await SessionManager.validateSession();
     } catch (error) {
       return false;
     }
@@ -49,9 +50,9 @@ export const firebaseInitService = {
   // Fazer logout e limpar estado
   async clearAuth(): Promise<void> {
     try {
-      
+      // Limpar sessão segura antes de fazer logout
+      await SessionManager.clearSession();
       await store.dispatch(logout());
-      
     } catch (error) {
       console.error('❌ Erro ao limpar autenticação:', error);
     }
