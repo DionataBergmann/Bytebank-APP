@@ -1,6 +1,6 @@
 # ByteBank Mobile - Aplicativo de Gestão Financeira
 
-Um aplicativo mobile completo para gestão financeira pessoal, desenvolvido em React Native com Expo, integrado ao Firebase para autenticação, armazenamento de dados e upload de arquivos.
+Um aplicativo mobile completo para gestão financeira pessoal, desenvolvido em React Native com Expo, seguindo Clean Architecture e integrado ao Firebase para autenticação, armazenamento de dados e upload de arquivos.
 
 ## 🚀 Funcionalidades
 
@@ -37,13 +37,16 @@ Um aplicativo mobile completo para gestão financeira pessoal, desenvolvido em R
 - **React Native** - Framework mobile
 - **Expo** - Plataforma de desenvolvimento
 - **TypeScript** - Tipagem estática
-- **Redux Toolkit** - Gerenciamento de estado
+- **Redux Toolkit** - Gerenciamento de estado avançado
+- **Reselect** - Selectors memoizados para performance
+- **RxJS** - Programação reativa
 - **Firebase** - Backend como serviço
   - Authentication
   - Firestore Database
   - Storage
 - **React Navigation** - Navegação
 - **React Native Gifted Charts** - Gráficos
+- **Expo Secure Store** - Armazenamento seguro de dados sensíveis
 - **Expo Document Picker** - Upload de arquivos
 
 ## 🔧 Instalação
@@ -71,22 +74,43 @@ Um aplicativo mobile completo para gestão financeira pessoal, desenvolvido em R
    yarn dev
    ```
 
-## 📱 Estrutura do Projeto
+## 📱 Arquitetura do Projeto
+
+O projeto segue **Clean Architecture** com separação clara de responsabilidades:
+
+### Estrutura de Pastas
 
 ```
 src/
-├── components/          # Componentes reutilizáveis
-│   ├── charts/         # Componentes de gráficos
-│   ├── forms/          # Formulários
-│   └── shared/         # Componentes compartilhados
-├── screens/            # Telas da aplicação
-├── services/           # Serviços de API
-├── store/              # Redux store
-│   └── slices/         # Redux slices
-├── types/              # Definições de tipos
-├── utils/              # Utilitários
-└── hooks/              # Custom hooks
+├── domain/             # Camada de Domínio (regras de negócio)
+│   ├── entities/       # Entidades do domínio
+│   ├── repositories/   # Interfaces dos repositórios
+│   └── usecases/      # Casos de uso (lógica de negócio)
+├── infrastructure/     # Camada de Infraestrutura
+│   ├── data/          # Implementação dos repositórios
+│   ├── cache/         # Sistema de cache
+│   ├── security/      # Segurança e criptografia
+│   ├── reactive/      # Programação reativa (RxJS)
+│   └── di/            # Injeção de dependências
+├── presentation/       # Camada de Apresentação
+│   ├── screens/       # Telas da aplicação
+│   ├── components/    # Componentes reutilizáveis
+│   └── navigation/    # Navegação
+├── store/             # Redux store
+│   ├── slices/        # Redux slices
+│   ├── selectors/     # Selectors memoizados
+│   └── middleware/    # Middlewares customizados
+├── hooks/             # Custom hooks
+├── utils/             # Utilitários
+└── constants/         # Constantes e configurações
 ```
+
+### Princípios da Arquitetura
+
+- **Separação de Camadas**: Domain, Infrastructure e Presentation
+- **Inversão de Dependências**: Domain não depende de Infrastructure
+- **Reutilização**: Componentes e hooks reutilizáveis
+- **Testabilidade**: Código organizado e fácil de testar
 
 ## 🎯 Funcionalidades Detalhadas
 
@@ -99,30 +123,39 @@ src/
 ### Transações
 - **CRUD Completo**: Criar, ler, atualizar e deletar transações
 - **Filtros Avançados**: Por data, categoria, tipo, valor
-- **Busca em Tempo Real**: Pesquisa por descrição
+- **Busca em Tempo Real**: Pesquisa reativa com debounce
 - **Upload de Arquivos**: Comprovantes e recibos
-- **Validação Robusta**: Validação de todos os campos
+- **Validação Avançada**: 
+  - Validação de valor (mínimo > 0, máximo R$ 1.000.000,00)
+  - Validação de categoria (obrigatória, lista válida)
+  - Mensagens de erro claras e específicas
 
 ### Autenticação
-- **Login/Registro**: Com email e senha
-- **Gerenciamento de Sessão**: Persistência de login
-- **Proteção de Rotas**: Acesso controlado
+- **Login/Registro**: Com email e senha (inputs sanitizados)
+- **Gerenciamento de Sessão**: 
+  - Persistência segura com criptografia
+  - Refresh automático de tokens
+  - Validação de sessão antes de operações sensíveis
+- **Proteção de Rotas**: Acesso controlado por autenticação
 
 ## 🔒 Segurança
 
-- Autenticação obrigatória para todas as operações
-- Regras de segurança do Firestore
-- Validação de dados no frontend e backend
-- Upload seguro de arquivos
-- Proteção contra injeção de dados
+- **Armazenamento Seguro**: Tokens e dados sensíveis criptografados com expo-secure-store (Keychain/Keystore)
+- **Gerenciamento de Sessão**: Validação automática, refresh de tokens e persistência segura
+- **Sanitização de Inputs**: Proteção contra XSS e SQL Injection
+- **Autenticação**: Firebase Auth com validação de sessão
+- **Validação Avançada**: Validação robusta de campos (valor, categoria, etc.)
+- **Regras de Segurança**: Firestore com regras de acesso
 
 ## 📊 Performance
 
-- Scroll infinito para listas grandes
-- Debounce na busca para otimizar queries
-- Cache de dados com Redux
-- Lazy loading de componentes
-- Otimização de re-renders
+- **Lazy Loading**: Carregamento sob demanda de screens e componentes
+- **Pre-loading**: Pré-carregamento de dados críticos após login
+- **Cache Inteligente**: Sistema de cache com TTL para otimizar requisições
+- **Selectors Memoizados**: Reselect para evitar recálculos desnecessários
+- **Programação Reativa**: RxJS para atualizações em tempo real eficientes
+- **Otimização de Re-renders**: React.memo em componentes pesados
+- **Debounce**: Otimização de buscas e inputs
 
 ## 📦 Build
 
@@ -142,6 +175,43 @@ expo build:ios
 ```bash
 expo publish
 ```
+
+## 🏗️ Arquitetura Implementada
+
+### Clean Architecture
+
+O projeto implementa Clean Architecture com três camadas principais:
+
+1. **Domain Layer**: Contém as regras de negócio puras
+   - Entities: Entidades do domínio (Transaction, User, Dashboard)
+   - Repositories Interfaces: Contratos para acesso a dados
+   - Use Cases: Lógica de negócio e validações
+
+2. **Infrastructure Layer**: Implementações concretas
+   - Repositories: Implementação dos contratos usando Firebase
+   - Cache: Sistema de cache com AsyncStorage
+   - Security: Armazenamento seguro e gerenciamento de sessão
+   - Reactive: Observables RxJS para dados em tempo real
+   - DI Container: Injeção de dependências centralizada
+
+3. **Presentation Layer**: Interface do usuário
+   - Screens: Telas da aplicação
+   - Components: Componentes reutilizáveis
+   - Navigation: Configuração de navegação
+
+### State Management
+
+- **Redux Toolkit**: Gerenciamento de estado global
+- **Reselect**: Selectors memoizados para performance
+- **Custom Middlewares**: Logger e tratamento de erros
+- **TypeScript**: Tipagem forte para type-safety
+
+### Programação Reativa
+
+- **RxJS**: Observables para dados em tempo real
+- **Firestore onSnapshot**: Atualizações automáticas
+- **Custom Hooks**: useReactiveData, useReactiveSearch
+- **Debounce**: Otimização de buscas
 
 ## 📝 Licença
 
