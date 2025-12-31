@@ -1,7 +1,7 @@
 export const VALIDATION_RULES = {
   REQUIRED: 'Este campo é obrigatório',
   MIN_AMOUNT: 'O valor deve ser maior que zero',
-  MAX_AMOUNT: 'O valor deve ser menor que R$ 1.000.000,00',
+  MAX_AMOUNT: 'O valor máximo é R$ 1.000.000,00',
   INVALID_EMAIL: 'Email inválido',
   MIN_PASSWORD: 'A senha deve ter pelo menos 6 caracteres',
   PASSWORDS_NOT_MATCH: 'As senhas não coincidem',
@@ -11,6 +11,7 @@ export const VALIDATION_RULES = {
   MIN_DESCRIPTION: 'A descrição deve ter pelo menos 3 caracteres',
   MAX_DESCRIPTION: 'A descrição deve ter no máximo 100 caracteres',
   INVALID_CATEGORY: 'Categoria inválida',
+  CATEGORY_REQUIRED: 'Selecione uma categoria',
   FILE_TOO_LARGE: 'Arquivo muito grande',
   INVALID_FILE_TYPE: 'Tipo de arquivo não suportado',
 } as const;
@@ -22,10 +23,22 @@ export const validateRequired = (value: any): string | null => {
   return null;
 };
 
-export const validateAmount = (value: number): string | null => {
-  if (!value || value <= 0) {
+/**
+ * Valida o valor de uma transação monetária
+ */
+export const validateAmount = (value: number | null | undefined): string | null => {
+  if (value === null || value === undefined) {
+    return VALIDATION_RULES.REQUIRED;
+  }
+
+  if (value <= 0) {
     return VALIDATION_RULES.MIN_AMOUNT;
   }
+
+  if (value > 1000000) {
+    return VALIDATION_RULES.MAX_AMOUNT;
+  }
+
   return null;
 };
 
@@ -51,14 +64,11 @@ export const validatePasswordMatch = (password: string, confirmPassword: string)
   return null;
 };
 
-export const validateAmountRange = (value: number): string | null => {
-  if (value <= 0) {
-    return VALIDATION_RULES.MIN_AMOUNT;
-  }
-  if (value >= 1000000) {
-    return VALIDATION_RULES.MAX_AMOUNT;
-  }
-  return null;
+/**
+ * Valida o range de valor de uma transação
+ */
+export const validateAmountRange = (value: number | null | undefined): string | null => {
+  return validateAmount(value);
 };
 
 export const validateDate = (dateString: string): string | null => {
@@ -82,23 +92,44 @@ export const validateDate = (dateString: string): string | null => {
   return null;
 };
 
-export const validateDescription = (description: string): string | null => {
-  if (!description || description.trim().length < 3) {
+/**
+ * Valida a descrição de uma transação
+ * Verifica comprimento mínimo e máximo, e remove espaços extras
+ */
+export const validateDescription = (description: string | null | undefined): string | null => {
+  if (!description || description.trim() === '') {
+    return VALIDATION_RULES.REQUIRED;
+  }
+
+  const trimmed = description.trim();
+
+  if (trimmed.length < 3) {
     return VALIDATION_RULES.MIN_DESCRIPTION;
   }
-  if (description.length > 100) {
+
+  if (trimmed.length > 100) {
     return VALIDATION_RULES.MAX_DESCRIPTION;
   }
+
   return null;
 };
 
-export const validateCategory = (category: string, validCategories: string[]): string | null => {
+/**
+ * Valida se a categoria é válida
+ * @param category Categoria a ser validada
+ * @param validCategories Lista de categorias válidas (opcional)
+ */
+export const validateCategory = (category: string | null | undefined, validCategories?: string[]): string | null => {
   if (!category || category.trim() === '') {
-    return VALIDATION_RULES.REQUIRED;
+    return VALIDATION_RULES.CATEGORY_REQUIRED;
   }
-  if (!validCategories.includes(category)) {
-    return VALIDATION_RULES.INVALID_CATEGORY;
+
+  if (validCategories && validCategories.length > 0) {
+    if (!validCategories.includes(category.trim())) {
+      return VALIDATION_RULES.INVALID_CATEGORY;
+    }
   }
+
   return null;
 };
 
