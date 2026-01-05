@@ -18,15 +18,18 @@ export class TransactionUseCases {
   }
 
   async createTransaction(transaction: TransactionFormData, userId: string) {
-    // Regras de negócio
+    // Validações de negócio
     if (transaction.amount <= 0) {
       throw new Error('O valor da transação deve ser maior que zero');
+    }
+    if (transaction.amount > 1000000) {
+      throw new Error('O valor máximo é R$ 1.000.000,00');
     }
     if (!transaction.description?.trim()) {
       throw new Error('A descrição é obrigatória');
     }
     if (!transaction.category) {
-      throw new Error('A categoria é obrigatória');
+      throw new Error('Selecione uma categoria');
     }
     if (!transaction.date) {
       throw new Error('A data é obrigatória');
@@ -36,8 +39,13 @@ export class TransactionUseCases {
   }
 
   async updateTransaction(id: string, transaction: Partial<TransactionFormData>) {
-    if (transaction.amount !== undefined && transaction.amount <= 0) {
-      throw new Error('O valor da transação deve ser maior que zero');
+    if (transaction.amount !== undefined) {
+      if (transaction.amount <= 0) {
+        throw new Error('O valor da transação deve ser maior que zero');
+      }
+      if (transaction.amount > 1000000) {
+        throw new Error('O valor máximo é R$ 1.000.000,00');
+      }
     }
     if (transaction.description !== undefined && !transaction.description.trim()) {
       throw new Error('A descrição não pode estar vazia');
