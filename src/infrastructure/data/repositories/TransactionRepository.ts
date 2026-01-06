@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ITransactionRepository } from '../../../domain/repositories/ITransactionRepository';
 import { Transaction, TransactionFilters, TransactionFormData } from '../../../domain/entities/Transaction';
-import { firebaseTransactionService } from '../../../../services/firebaseTransactionService';
 import { CacheService } from '../../cache/CacheService';
 import { CacheKeys, CacheTTL } from '../../cache/CacheKeys';
+import { firebaseTransactionService } from '@/services/firebaseTransactionService';
 
 export class TransactionRepository implements ITransactionRepository {
   async getTransactions(
