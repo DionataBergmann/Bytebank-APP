@@ -28,11 +28,13 @@ export class DashboardObservable {
    * @param userId ID do usuário
    * @param period Período (week, month, year)
    * @param selectedMonth Mês selecionado (formato YYYY-MM)
+   * @param selectedYear Ano selecionado (formato YYYY)
    */
   getDashboardData$(
     userId: string,
     period: 'week' | 'month' | 'year' = 'month',
-    selectedMonth: string = new Date().toISOString().slice(0, 7)
+    selectedMonth: string = new Date().toISOString().slice(0, 7),
+    selectedYear?: string
   ): Observable<DashboardData> {
     // Observable de transações filtradas por período
     const transactions$ = this.transactionObservable.getTransactions$(userId);
@@ -40,9 +42,9 @@ export class DashboardObservable {
     return transactions$.pipe(
       map((transactions) => {
         // Filtrar transações pelo período selecionado
-        const filteredTransactions = this.filterByPeriod(transactions, period, selectedMonth);
+        const filteredTransactions = this.filterByPeriod(transactions, period, selectedMonth, selectedYear);
 
-        // Calcular métricas
+        // Calcular métricas do período
         const totalIncome = filteredTransactions
           .filter((t) => t.type === 'income')
           .reduce((sum, t) => sum + t.amount, 0);
@@ -51,8 +53,16 @@ export class DashboardObservable {
           .filter((t) => t.type === 'expense')
           .reduce((sum, t) => sum + t.amount, 0);
 
-        const totalBalance = totalIncome - totalExpense;
-        const savingsRate = totalIncome > 0 ? (totalBalance / totalIncome) * 100 : 0;
+        const allIncome = transactions
+          .filter((t) => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const allExpense = transactions
+          .filter((t) => t.type === 'expense')
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const totalBalance = allIncome - allExpense; 
+        const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0;
 
         // Calcular top categorias
         const categoryMap = new Map<string, number>();
@@ -67,6 +77,11 @@ export class DashboardObservable {
           .map(([category, amount]) => ({ category, amount }))
           .sort((a, b) => b.amount - a.amount)
           .slice(0, 5);
+        
+        const getCategoryColor = (index: number): string => {
+          const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
+          return colors[index % colors.length];
+        };
 
         // Transações recentes
         const recentTransactions = filteredTransactions
@@ -91,15 +106,16 @@ export class DashboardObservable {
             category: c.category,
             amount: c.amount,
             percentage: totalExpense > 0 ? (c.amount / totalExpense) * 100 : 0,
+            type: 'expense' as const,
           })),
           recentTransactions,
           monthlyTrend: this.calculateMonthlyTrend(filteredTransactions),
           expenseDistribution: this.calculateExpenseDistribution(filteredTransactions),
           investmentEvolution: [],
-          categoryBreakdown: topCategories.map((c) => ({
+          categoryBreakdown: topCategories.map((c, index) => ({
             category: c.category,
             amount: c.amount,
-            percentage: totalExpense > 0 ? (c.amount / totalExpense) * 100 : 0,
+            color: getCategoryColor(index),
           })),
           cashFlow: {
             income: totalIncome,
@@ -126,7 +142,8 @@ export class DashboardObservable {
   private filterByPeriod(
     transactions: Transaction[],
     period: 'week' | 'month' | 'year',
-    selectedMonth: string
+    selectedMonth: string,
+    selectedYear?: string
   ): Transaction[] {
     const now = new Date();
     let startDate: Date;
@@ -143,7 +160,7 @@ export class DashboardObservable {
         endDate = new Date(year, month, 0, 23, 59, 59);
         break;
       case 'year':
-        const yearNum = parseInt(selectedMonth.split('-')[0]);
+        const yearNum = selectedYear ? parseInt(selectedYear) : (selectedMonth ? parseInt(selectedMonth.split('-')[0]) : now.getFullYear());
         startDate = new Date(yearNum, 0, 1);
         endDate = new Date(yearNum, 11, 31, 23, 59, 59);
         break;

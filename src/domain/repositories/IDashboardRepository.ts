@@ -4,12 +4,14 @@ export interface IDashboardRepository {
   getDashboardData(
     userId: string,
     period: 'week' | 'month' | 'year',
-    selectedMonth: string
+    selectedMonth: string,
+    selectedYear?: string
   ): Promise<DashboardData>;
   getChartData(
     userId: string,
     period: 'week' | 'month' | 'year',
-    selectedMonth: string
+    selectedMonth: string,
+    selectedYear?: string
   ): Promise<ChartData[]>;
 }
 

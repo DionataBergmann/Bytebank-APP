@@ -66,7 +66,8 @@ export function useReactiveTransactions(
 export function useReactiveDashboard(
   userId: string | undefined,
   period: 'week' | 'month' | 'year' = 'month',
-  selectedMonth: string = new Date().toISOString().slice(0, 7)
+  selectedMonth: string = new Date().toISOString().slice(0, 7),
+  selectedYear?: string
 ): {
   data: DashboardData | null;
   loading: boolean;
@@ -87,7 +88,7 @@ export function useReactiveDashboard(
     setError(null);
 
     const dashboardObservable = DashboardObservable.getInstance();
-    const dashboard$ = dashboardObservable.getDashboardData$(userId, period, selectedMonth);
+    const dashboard$ = dashboardObservable.getDashboardData$(userId, period, selectedMonth, selectedYear);
 
     const subscription = dashboard$.subscribe({
       next: (dashboardData) => {
@@ -111,7 +112,7 @@ export function useReactiveDashboard(
         subscriptionRef.current = null;
       }
     };
-  }, [userId, period, selectedMonth]);
+  }, [userId, period, selectedMonth, selectedYear]);
 
   return { data, loading, error };
 }

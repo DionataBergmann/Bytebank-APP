@@ -3,59 +3,50 @@ import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../utils/colors';
 
-interface MonthSelectorProps {
-  selectedMonth: string;
-  onMonthSelect: (month: string) => void;
+interface YearSelectorProps {
+  selectedYear: string;
+  onYearSelect: (year: string) => void;
   style?: any;
 }
 
-const MonthSelector: React.FC<MonthSelectorProps> = ({
-  selectedMonth,
-  onMonthSelect,
+const YearSelector: React.FC<YearSelectorProps> = ({
+  selectedYear,
+  onYearSelect,
   style,
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const generateMonths = () => {
-    const months: { key: string; label: string }[] = [];
+  const generateYears = () => {
+    const years: { key: string; label: string }[] = [];
     const now = new Date();
-    const monthNames = [
-      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-    ];
+    const currentYear = now.getFullYear();
 
-    for (let i = 23; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const year = date.getFullYear();
-      const month = date.getMonth() + 1;
-      const key = `${year}-${String(month).padStart(2, '0')}`;
-      const label = `${monthNames[month - 1]} ${year}`;
-      months.push({ key, label });
+    for (let i = 0; i <= 5; i++) {
+      const year = currentYear - i;
+      years.push({ key: year.toString(), label: year.toString() });
     }
 
-    return months;
+    return years;
   };
 
-  const months = generateMonths();
+  const years = generateYears();
 
-  const getCurrentMonthLabel = () => {
-    const month = months.find(m => m.key === selectedMonth);
-    return month ? month.label : 'Selecionar mês';
+  const getCurrentYearLabel = () => {
+    const year = years.find(y => y.key === selectedYear);
+    return year ? year.label : 'Selecionar ano';
   };
 
-  const getCurrentMonth = () => {
+  const getCurrentYear = () => {
     const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return now.getFullYear().toString();
   };
 
-  // Scroll para o mês selecionado quando o modal abrir
   useEffect(() => {
     if (isVisible && scrollViewRef.current) {
-      const selectedIndex = months.findIndex(m => m.key === selectedMonth);
+      const selectedIndex = years.findIndex(y => y.key === selectedYear);
       if (selectedIndex !== -1) {
-        // Calcular posição para centralizar o item
-        const itemHeight = 60; // Altura aproximada de cada item
+        const itemHeight = 60;
         const scrollPosition = Math.max(0, (selectedIndex * itemHeight) - (200 / 2));
 
         setTimeout(() => {
@@ -66,10 +57,10 @@ const MonthSelector: React.FC<MonthSelectorProps> = ({
         }, 100);
       }
     }
-  }, [isVisible, selectedMonth]);
+  }, [isVisible, selectedYear]);
 
-  const handleMonthSelect = (monthKey: string) => {
-    onMonthSelect(monthKey);
+  const handleYearSelect = (yearKey: string) => {
+    onYearSelect(yearKey);
     setIsVisible(false);
   };
 
@@ -79,7 +70,7 @@ const MonthSelector: React.FC<MonthSelectorProps> = ({
         style={[styles.selector, style]}
         onPress={() => setIsVisible(true)}
       >
-        <Text style={styles.selectorText}>{getCurrentMonthLabel()}</Text>
+        <Text style={styles.selectorText}>{getCurrentYearLabel()}</Text>
         <Ionicons name="chevron-down" size={20} color={colors.textSecondary} />
       </TouchableOpacity>
 
@@ -92,7 +83,7 @@ const MonthSelector: React.FC<MonthSelectorProps> = ({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecionar Mês</Text>
+              <Text style={styles.modalTitle}>Selecionar Ano</Text>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={() => setIsVisible(false)}
@@ -103,37 +94,37 @@ const MonthSelector: React.FC<MonthSelectorProps> = ({
 
             <ScrollView
               ref={scrollViewRef}
-              style={styles.monthsList}
+              style={styles.yearsList}
               showsVerticalScrollIndicator={false}
             >
-              {months.map((month) => {
-                const isCurrentMonth = month.key === getCurrentMonth();
-                const isSelected = selectedMonth === month.key;
+              {years.map((year) => {
+                const isCurrentYear = year.key === getCurrentYear();
+                const isSelected = selectedYear === year.key;
 
                 return (
                   <TouchableOpacity
-                    key={month.key}
+                    key={year.key}
                     style={[
-                      styles.monthItem,
-                      isSelected && styles.monthItemSelected,
-                      isCurrentMonth && !isSelected && styles.currentMonthItem,
+                      styles.yearItem,
+                      isSelected && styles.yearItemSelected,
+                      isCurrentYear && !isSelected && styles.currentYearItem,
                     ]}
-                    onPress={() => handleMonthSelect(month.key)}
+                    onPress={() => handleYearSelect(year.key)}
                   >
                     <Text
                       style={[
-                        styles.monthText,
-                        isSelected && styles.monthTextSelected,
-                        isCurrentMonth && !isSelected && styles.currentMonthText,
+                        styles.yearText,
+                        isSelected && styles.yearTextSelected,
+                        isCurrentYear && !isSelected && styles.currentYearText,
                       ]}
                     >
-                      {month.label}
-                      {isCurrentMonth && !isSelected && ' (Atual)'}
+                      {year.label}
+                      {isCurrentYear && !isSelected && ' (Atual)'}
                     </Text>
                     {isSelected && (
                       <Ionicons name="checkmark" size={20} color={colors.primary} />
                     )}
-                    {isCurrentMonth && !isSelected && (
+                    {isCurrentYear && !isSelected && (
                       <Ionicons name="today" size={20} color={colors.text} />
                     )}
                   </TouchableOpacity>
@@ -158,7 +149,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
-    minWidth: 200,
+    minWidth: 150,
   },
   selectorText: {
     fontSize: 16,
@@ -201,10 +192,10 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
-  monthsList: {
+  yearsList: {
     maxHeight: 400,
   },
-  monthItem: {
+  yearItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -213,26 +204,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.lightGray,
   },
-  monthItemSelected: {
+  yearItemSelected: {
     backgroundColor: colors.primaryLight,
   },
-  currentMonthItem: {
+  currentYearItem: {
     backgroundColor: colors.lightGray,
     borderLeftWidth: 3,
     borderLeftColor: colors.primary,
   },
-  monthText: {
+  yearText: {
     fontSize: 16,
     color: colors.text,
   },
-  monthTextSelected: {
+  yearTextSelected: {
     color: colors.primary,
     fontWeight: '600',
   },
-  currentMonthText: {
+  currentYearText: {
     color: colors.primary,
     fontWeight: '500',
   },
 });
 
-export default MonthSelector;
+export default YearSelector;
+

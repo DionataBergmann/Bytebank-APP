@@ -49,11 +49,12 @@ export class TransactionObservable {
           (snapshot: QuerySnapshot<DocumentData>) => {
             const transactions: Transaction[] = snapshot.docs.map((doc) => {
               const data = doc.data();
+              const transactionType = data.type || (data.tags && typeof data.tags === 'object' && data.tags.type) || 'expense';
               return {
                 id: doc.id,
                 description: data.description || '',
                 amount: data.amount || 0,
-                type: data.type || 'expense',
+                type: transactionType,
                 category: data.category || '',
                 date: data.date || new Date().toISOString(),
                 createdAt: data.createdAt || new Date().toISOString(),
@@ -83,16 +84,24 @@ export class TransactionObservable {
 
             // Filtrar por data inicial
             if (filters?.startDate) {
-              filteredTransactions = filteredTransactions.filter(
-                (t) => t.date >= filters.startDate!
-              );
+              const startDate = new Date(filters.startDate);
+              startDate.setHours(0, 0, 0, 0);
+              filteredTransactions = filteredTransactions.filter((t) => {
+                const transactionDate = new Date(t.date);
+                transactionDate.setHours(0, 0, 0, 0);
+                return transactionDate >= startDate;
+              });
             }
 
             // Filtrar por data final
             if (filters?.endDate) {
-              filteredTransactions = filteredTransactions.filter(
-                (t) => t.date <= filters.endDate!
-              );
+              const endDate = new Date(filters.endDate);
+              endDate.setHours(23, 59, 59, 999);
+              filteredTransactions = filteredTransactions.filter((t) => {
+                const transactionDate = new Date(t.date);
+                transactionDate.setHours(0, 0, 0, 0);
+                return transactionDate <= endDate;
+              });
             }
 
             // Filtrar por busca (descrição)
