@@ -10,7 +10,6 @@ export class CacheManager {
   static async initialize(): Promise<void> {
     try {
       await CacheService.clearExpired();
-      console.log('[Cache] Cache inicializado e limpo');
     } catch (error) {
       console.error('[Cache] Erro ao inicializar cache:', error);
     }

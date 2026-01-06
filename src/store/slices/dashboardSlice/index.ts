@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { DashboardData, ChartData } from '../../../domain/entities/Dashboard';
 import { dashboardUseCases } from '../../../infrastructure/di/container';
+import { SessionManager } from '../../../infrastructure/security/SessionManager';
+import { auth } from '../../../config/firebase';
 
 interface DashboardState {
   data: DashboardData | null;
@@ -32,7 +34,14 @@ export const fetchDashboardData = createAsyncThunk(
     const selectedMonth = state.dashboard.selectedMonth;
     const selectedYear = state.dashboard.selectedYear;
     
-    
+    // Fallback: se user não estiver disponível mas token existe, tentar obter userId do SessionManager
+    if (!userId && state.auth.token && state.auth.isAuthenticated) {
+      try {
+        userId = await SessionManager.getCurrentUserId();
+      } catch (error) {
+        console.warn('⚠️ Não foi possível obter userId do SessionManager:', error);
+      }
+    }
     
     if (!userId) {
       console.error('❌ Redux: Usuário não autenticado');
@@ -57,6 +66,22 @@ export const fetchChartData = createAsyncThunk(
     const selectedYear = state.dashboard.selectedYear;
     
     
+    if (!userId && state.auth.token && state.auth.isAuthenticated) {
+      try {
+        
+        userId = await SessionManager.getCurrentUserId();
+     
+        if (!userId && auth.currentUser) {
+          userId = auth.currentUser.uid;
+        }
+      } catch (error) {
+        console.warn('⚠️ Não foi possível obter userId do SessionManager:', error);
+      
+        if (!userId && auth.currentUser) {
+          userId = auth.currentUser.uid;
+        }
+      }
+    }
     
     if (!userId) {
       console.error('❌ Redux: Usuário não autenticado');

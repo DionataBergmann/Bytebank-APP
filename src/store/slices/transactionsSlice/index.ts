@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Transaction, TransactionFilters, TransactionFormData } from '../../../domain/entities/Transaction';
 import { transactionUseCases } from '../../../infrastructure/di/container';
+import { SessionManager } from '../../../infrastructure/security/SessionManager';
+import { auth } from '../../../config/firebase';
 
 interface TransactionsState {
   transactions: Transaction[];
@@ -33,11 +35,24 @@ export const fetchTransactions = createAsyncThunk(
   async (page: number = 1, { getState }) => {
     
     
-    const state = getState() as { transactions: TransactionsState; auth: { user: any } };
-    const userId = state.auth.user?.id;
+    const state = getState() as { transactions: TransactionsState; auth: { user: any; token: string | null; isAuthenticated: boolean } };
+    let userId = state.auth.user?.id;
     
-    
-    
+    if (!userId && state.auth.token && state.auth.isAuthenticated) {
+      try {
+        userId = await SessionManager.getCurrentUserId();
+        
+        if (!userId && auth.currentUser) {
+          userId = auth.currentUser.uid;
+        }
+      } catch (error) {
+        console.warn('⚠️ Não foi possível obter userId do SessionManager:', error);
+
+        if (!userId && auth.currentUser) {
+          userId = auth.currentUser.uid;
+        }
+      }
+    }
     
     if (!userId) {
       console.error('❌ Redux: Usuário não autenticado');
@@ -90,10 +105,25 @@ export const addTransaction = createAsyncThunk(
   async (transaction: TransactionFormData, { getState }) => {
     
     
-    const state = getState() as { auth: { user: any } };
-    const userId = state.auth.user?.id;
+    const state = getState() as { auth: { user: any; token: string | null; isAuthenticated: boolean } };
+    let userId = state.auth.user?.id;
     
-    
+    if (!userId && state.auth.token && state.auth.isAuthenticated) {
+      try {
+      
+        userId = await SessionManager.getCurrentUserId();
+        
+        if (!userId && auth.currentUser) {
+          userId = auth.currentUser.uid;
+        }
+      } catch (error) {
+        console.warn('⚠️ Não foi possível obter userId do SessionManager:', error);
+     
+        if (!userId && auth.currentUser) {
+          userId = auth.currentUser.uid;
+        }
+      }
+    }
     
     if (!userId) {
       console.error('❌ Redux: Usuário não autenticado');
