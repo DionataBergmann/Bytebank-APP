@@ -1,8 +1,9 @@
 import { IDashboardRepository } from '../../../domain/repositories/IDashboardRepository';
 import { DashboardData, ChartData } from '../../../domain/entities/Dashboard';
-import { firebaseDashboardService } from '../../../../services/firebaseDashboardService';
+
 import { CacheService } from '../../cache/CacheService';
 import { CacheKeys, CacheTTL } from '../../cache/CacheKeys';
+import { firebaseDashboardService } from '@/services/firebaseDashboardService';
 
 export class DashboardRepository implements IDashboardRepository {
   async getDashboardData(
