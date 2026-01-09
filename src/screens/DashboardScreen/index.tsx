@@ -11,11 +11,10 @@ import {
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
-import { fetchDashboardData, fetchChartData, setSelectedPeriod, setSelectedMonth } from '../../store/slices/dashboardSlice';
+import { fetchDashboardData, fetchChartData, setSelectedPeriod, setSelectedMonth, setSelectedYear } from '../../store/slices/dashboardSlice';
 import { formatCurrency } from '../../utils/formatters';
 import { colors } from '../../utils/colors';
 import {
-  LineChart,
   PieChart,
   BarChart,
   ExpenseDistributionChart,
@@ -23,23 +22,24 @@ import {
   CategoryBreakdownChart,
   CashFlowChart
 } from '../../components/charts';
-import { AnimatedCard, MonthSelector, Logo } from '../../components/shared';
+import { AnimatedCard, MonthSelector, YearSelector, Logo } from '../../components/shared';
 import { useReactiveDashboard } from '../../hooks';
 
 const DashboardScreen: React.FC = () => {
   const dispatch = useDispatch();
-  const { data: reduxData, charts, loading: reduxLoading, error: reduxError, selectedPeriod, selectedMonth } = useSelector(
+  const { data: reduxData, charts, loading: reduxLoading, error: reduxError, selectedPeriod, selectedMonth, selectedYear } = useSelector(
     (state: RootState) => state.dashboard
   );
   const { user } = useSelector((state: RootState) => state.auth);
-  
+
   // Observable reativo para atualizações em tempo real do dashboard
   const { data: reactiveData, loading: reactiveLoading } = useReactiveDashboard(
     user?.id,
     selectedPeriod === 'year' ? 'year' : selectedPeriod === 'week' ? 'week' : 'month',
-    selectedMonth
+    selectedMonth,
+    selectedYear
   );
-  
+
   // Usar dados reativos quando disponíveis, senão usar Redux
   const data = reactiveData || reduxData;
   const loading = reactiveLoading || reduxLoading;
@@ -47,7 +47,6 @@ const DashboardScreen: React.FC = () => {
 
   const loadDashboardData = useCallback(async () => {
     try {
-
       // Verificar se o usuário está autenticado antes de carregar
       if (!user) {
         return;
@@ -60,7 +59,7 @@ const DashboardScreen: React.FC = () => {
     } catch (error) {
       console.error('❌ DashboardScreen: Erro ao carregar dados do dashboard:', error);
     }
-  }, [dispatch, selectedPeriod, user]);
+  }, [dispatch, selectedPeriod, selectedMonth, selectedYear, user]);
 
   useEffect(() => {
     // Só carregar se o usuário estiver autenticado
@@ -71,6 +70,12 @@ const DashboardScreen: React.FC = () => {
 
     }
   }, [loadDashboardData, user]); // Dependência do usuário
+
+  useEffect(() => {
+    if (user && (selectedPeriod === 'year' && selectedYear)) {
+      loadDashboardData();
+    }
+  }, [selectedPeriod, selectedYear, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -171,6 +176,20 @@ const DashboardScreen: React.FC = () => {
         </View>
       )}
 
+      {selectedPeriod === 'year' && (
+        <View style={styles.monthSelectorContainer}>
+          <YearSelector
+            selectedYear={selectedYear}
+            onYearSelect={async (year) => {
+              dispatch(setSelectedYear(year));
+              await loadDashboardData();
+              dispatch(fetchChartData(selectedPeriod) as any);
+            }}
+            style={styles.monthSelector}
+          />
+        </View>
+      )}
+
       {/* Balance Card */}
       <AnimatedCard delay={100} style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Saldo Total</Text>
@@ -239,19 +258,6 @@ const DashboardScreen: React.FC = () => {
         {/* Gráficos Principais */}
         {charts && charts.length > 0 && (
           <>
-            {/* Line Chart - Saldo Líquido Mensal */}
-            {(() => {
-              const lineChart = charts.find(chart => chart.type === 'line');
-              return lineChart && (
-                <AnimatedCard delay={900}>
-                  <LineChart
-                    data={lineChart.data || []}
-                    title="Saldo Líquido Mensal"
-                    color={colors.primary}
-                  />
-                </AnimatedCard>
-              );
-            })()}
           </>
         )}
 

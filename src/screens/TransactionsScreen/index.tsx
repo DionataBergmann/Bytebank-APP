@@ -102,6 +102,12 @@ const TransactionsScreen: React.FC = () => {
     }
   }, [user]); // Apenas dependência do usuário
 
+  useEffect(() => {
+    if (user && (filters.startDate || filters.endDate)) {
+      loadTransactions(1);
+    }
+  }, [filters.startDate, filters.endDate, user]);
+
   // Recarregar transações quando a tela ganhar foco (útil após editar transação)
   useFocusEffect(
     useCallback(() => {

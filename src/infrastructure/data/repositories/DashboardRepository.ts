@@ -9,7 +9,8 @@ export class DashboardRepository implements IDashboardRepository {
   async getDashboardData(
     userId: string,
     period: 'week' | 'month' | 'year',
-    selectedMonth: string
+    selectedMonth: string,
+    selectedYear?: string
   ): Promise<DashboardData> {
     const cacheKey = CacheKeys.DASHBOARD_DATA(userId, period, selectedMonth);
     
@@ -20,7 +21,7 @@ export class DashboardRepository implements IDashboardRepository {
     }
 
     // Se não estiver em cache, buscar do serviço
-    const data = await firebaseDashboardService.getDashboardData(userId, period, selectedMonth);
+    const data = await firebaseDashboardService.getDashboardData(userId, period, selectedMonth, selectedYear);
     
     // Salvar no cache (TTL de 5 minutos)
     await CacheService.set(cacheKey, data, CacheTTL.MEDIUM);
@@ -31,7 +32,8 @@ export class DashboardRepository implements IDashboardRepository {
   async getChartData(
     userId: string,
     period: 'week' | 'month' | 'year',
-    selectedMonth: string
+    selectedMonth: string,
+    selectedYear?: string
   ): Promise<ChartData[]> {
     const cacheKey = CacheKeys.DASHBOARD_CHARTS(userId, period, selectedMonth);
     
@@ -42,7 +44,7 @@ export class DashboardRepository implements IDashboardRepository {
     }
 
     // Se não estiver em cache, buscar do serviço
-    const data = await firebaseDashboardService.getChartData(userId, period, selectedMonth);
+    const data = await firebaseDashboardService.getChartData(userId, period, selectedMonth, selectedYear);
     
     // Salvar no cache (TTL de 5 minutos)
     await CacheService.set(cacheKey, data, CacheTTL.MEDIUM);

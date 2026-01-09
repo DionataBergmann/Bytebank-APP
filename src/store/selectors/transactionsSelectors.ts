@@ -46,11 +46,23 @@ export const selectFilteredTransactions = createSelector(
     }
 
     if (filters.startDate) {
-      filtered = filtered.filter(t => t.date >= filters.startDate!);
+      const startDate = new Date(filters.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      filtered = filtered.filter(t => {
+        const transactionDate = new Date(t.date);
+        transactionDate.setHours(0, 0, 0, 0);
+        return transactionDate >= startDate;
+      });
     }
 
     if (filters.endDate) {
-      filtered = filtered.filter(t => t.date <= filters.endDate!);
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(t => {
+        const transactionDate = new Date(t.date);
+        transactionDate.setHours(0, 0, 0, 0);
+        return transactionDate <= endDate;
+      });
     }
 
     if (filters.minAmount !== undefined && filters.minAmount !== null) {

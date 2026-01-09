@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { DashboardData, ChartData } from '../../../domain/entities/Dashboard';
 import { dashboardUseCases } from '../../../infrastructure/di/container';
+import { SessionManager } from '../../../infrastructure/security/SessionManager';
+import { auth } from '../../../config/firebase';
 
 interface DashboardState {
   data: DashboardData | null;
@@ -9,6 +11,7 @@ interface DashboardState {
   error: string | null;
   selectedPeriod: 'week' | 'month' | 'year';
   selectedMonth: string;
+  selectedYear: string;
 }
 
 const initialState: DashboardState = {
@@ -18,6 +21,7 @@ const initialState: DashboardState = {
   error: null,
   selectedPeriod: 'month',
   selectedMonth: new Date().toISOString().slice(0, 7), // Mês atual como padrão
+  selectedYear: new Date().getFullYear().toString(), // Ano atual como padrão
 };
 
 export const fetchDashboardData = createAsyncThunk(
@@ -25,19 +29,26 @@ export const fetchDashboardData = createAsyncThunk(
   async (period: 'week' | 'month' | 'year' = 'month', { getState }) => {
     
     
-    const state = getState() as { auth: { user: any }; dashboard: { selectedMonth: string } };
-    const userId = state.auth.user?.id;
+    const state = getState() as { auth: { user: any; token: string | null; isAuthenticated: boolean }; dashboard: { selectedMonth: string; selectedYear: string } };
+    let userId = state.auth.user?.id;
     const selectedMonth = state.dashboard.selectedMonth;
+    const selectedYear = state.dashboard.selectedYear;
     
-    
-    
+    // Fallback: se user não estiver disponível mas token existe, tentar obter userId do SessionManager
+    if (!userId && state.auth.token && state.auth.isAuthenticated) {
+      try {
+        userId = await SessionManager.getCurrentUserId();
+      } catch (error) {
+        console.warn('⚠️ Não foi possível obter userId do SessionManager:', error);
+      }
+    }
     
     if (!userId) {
       console.error('❌ Redux: Usuário não autenticado');
       throw new Error('Usuário não autenticado');
     }
 
-    const response = await dashboardUseCases.getDashboardData(userId, period, selectedMonth);
+    const response = await dashboardUseCases.getDashboardData(userId, period, selectedMonth, selectedYear);
     
     
     return response;
@@ -49,19 +60,35 @@ export const fetchChartData = createAsyncThunk(
   async (period: 'week' | 'month' | 'year' = 'month', { getState }) => {
     
     
-    const state = getState() as { auth: { user: any }; dashboard: { selectedMonth: string } };
-    const userId = state.auth.user?.id;
+    const state = getState() as { auth: { user: any; token: string | null; isAuthenticated: boolean }; dashboard: { selectedMonth: string; selectedYear: string } };
+    let userId = state.auth.user?.id;
     const selectedMonth = state.dashboard.selectedMonth;
+    const selectedYear = state.dashboard.selectedYear;
     
     
-    
+    if (!userId && state.auth.token && state.auth.isAuthenticated) {
+      try {
+        
+        userId = await SessionManager.getCurrentUserId();
+     
+        if (!userId && auth.currentUser) {
+          userId = auth.currentUser.uid;
+        }
+      } catch (error) {
+        console.warn('⚠️ Não foi possível obter userId do SessionManager:', error);
+      
+        if (!userId && auth.currentUser) {
+          userId = auth.currentUser.uid;
+        }
+      }
+    }
     
     if (!userId) {
       console.error('❌ Redux: Usuário não autenticado');
       throw new Error('Usuário não autenticado');
     }
 
-    const response = await dashboardUseCases.getChartData(userId, period, selectedMonth);
+    const response = await dashboardUseCases.getChartData(userId, period, selectedMonth, selectedYear);
     
     
     return response;
@@ -77,6 +104,9 @@ const dashboardSlice = createSlice({
             },
             setSelectedMonth: (state, action: PayloadAction<string>) => {
               state.selectedMonth = action.payload;
+            },
+            setSelectedYear: (state, action: PayloadAction<string>) => {
+              state.selectedYear = action.payload;
             },
             clearDashboardData: (state) => {
               state.data = null;
@@ -119,7 +149,7 @@ const dashboardSlice = createSlice({
   },
 });
 
-export const { setSelectedPeriod, setSelectedMonth, clearDashboardData } = dashboardSlice.actions;
+export const { setSelectedPeriod, setSelectedMonth, setSelectedYear, clearDashboardData } = dashboardSlice.actions;
 export default dashboardSlice.reducer;
 
 

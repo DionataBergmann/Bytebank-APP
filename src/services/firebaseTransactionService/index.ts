@@ -143,21 +143,30 @@ export const firebaseTransactionService = {
 
       const querySnapshot = await getDocs(q);
       
-      
       let allTransactions: Transaction[] = [];
       
       // Converter todos os documentos para transações
       querySnapshot.forEach((doc) => {
-        const transactionData = {
+        const data = doc.data();
+        const transactionType = data.type || (data.tags && typeof data.tags === 'object' && data.tags.type) || 'expense';
+        const transactionData: Transaction = {
           id: doc.id,
-          ...doc.data(),
-        } as Transaction;
+          description: data.description || '',
+          amount: data.amount || 0,
+          type: transactionType,
+          category: data.category || '',
+          date: data.date || new Date().toISOString(),
+          createdAt: data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt || new Date().toISOString(),
+          receiptUrl: data.receiptUrl,
+          tags: data.tags || [],
+          notes: data.notes,
+        };
         allTransactions.push(transactionData);
       });
 
       // Aplicar filtros no código (não na query)
       if (filters) {
-        
         allTransactions = allTransactions.filter(transaction => {
           if (filters.type && filters.type !== 'all' && transaction.type !== filters.type) {
             
@@ -167,13 +176,23 @@ export const firebaseTransactionService = {
             
             return false;
           }
-          if (filters.startDate && transaction.date < filters.startDate) {
-            
-            return false;
+          if (filters.startDate) {
+            const transactionDate = new Date(transaction.date);
+            const startDate = new Date(filters.startDate);
+            transactionDate.setHours(0, 0, 0, 0);
+            startDate.setHours(0, 0, 0, 0);
+            if (transactionDate < startDate) {
+              return false;
+            }
           }
-          if (filters.endDate && transaction.date > filters.endDate) {
-            
-            return false;
+          if (filters.endDate) {
+            const transactionDate = new Date(transaction.date);
+            const endDate = new Date(filters.endDate);
+            transactionDate.setHours(0, 0, 0, 0);
+            endDate.setHours(23, 59, 59, 999);
+            if (transactionDate > endDate) {
+              return false;
+            }
           }
           if (filters.search && !transaction.description.toLowerCase().includes(filters.search.toLowerCase())) {
             

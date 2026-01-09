@@ -10,14 +10,16 @@ import {
 
 export const firebaseDashboardService = {
   // Buscar dados do dashboard
-  async getDashboardData(userId: string, period: 'week' | 'month' | 'year' = 'month', selectedMonth?: string): Promise<DashboardData> {
+  async getDashboardData(userId: string, period: 'week' | 'month' | 'year' = 'month', selectedMonth?: string, selectedYear?: string): Promise<DashboardData> {
     try {
       const { startDate, endDate } = selectedMonth && period === 'month' 
         ? this.getDateRangeForMonth(selectedMonth)
-        : this.getDateRange(period);
+        : this.getDateRange(period, selectedYear);
       
-      // Buscar estatísticas
+      // Buscar estatísticas do período selecionado
       const stats = await firebaseTransactionService.getTransactionStats(userId, startDate, endDate);
+      
+      const totalStats = await firebaseTransactionService.getTransactionStats(userId);
       
       // Buscar transações recentes do período selecionado
       const recentTransactions = await firebaseTransactionService.getRecentTransactions(userId, 5, startDate, endDate);
@@ -28,8 +30,9 @@ export const firebaseDashboardService = {
       // Para período 'year', buscar dados de todos os meses e somar
       let aggregatedTopCategories = topCategories;
       if (period === 'year') {
-        const yearStartDate = new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0];
-        const yearEndDate = new Date(new Date().getFullYear(), 11, 31).toISOString().split('T')[0];
+        const year = selectedYear ? parseInt(selectedYear) : new Date().getFullYear();
+        const yearStartDate = new Date(year, 0, 1).toISOString().split('T')[0];
+        const yearEndDate = new Date(year, 11, 31, 23, 59, 59).toISOString().split('T')[0];
         
         // Buscar todas as transações do ano
         const yearTransactions = await firebaseTransactionService.getTransactions(userId, {
@@ -66,13 +69,10 @@ export const firebaseDashboardService = {
       const categoryBreakdown = this.generateCategoryBreakdownData(aggregatedTopCategories);
       const cashFlow = this.generateCashFlowData(stats);
       
-      // Gerar dados de evolução (sempre do ano inteiro)
-      const lineChartData = await this.generateLineChartData(userId, 'year');
-
       return {
-        totalBalance: stats.totalBalance,
-        monthlyIncome: stats.totalIncome,
-        monthlyExpense: stats.totalExpense,
+        totalBalance: totalStats.totalBalance, // Saldo total acumulado de todas as transações
+        monthlyIncome: stats.totalIncome, // Receitas do período
+        monthlyExpense: stats.totalExpense, // Despesas do período
         savingsRate: stats.savingsRate,
         recentTransactions: recentTransactions.map(transaction => ({
           id: transaction.id,
@@ -88,7 +88,7 @@ export const firebaseDashboardService = {
           percentage: 0, // TODO: Calcular porcentagem
           type: cat.type as 'income' | 'expense'
         })),
-        monthlyTrend: lineChartData, // Dados de evolução do ano inteiro
+        monthlyTrend: [], 
         expenseDistribution,
         investmentEvolution,
         categoryBreakdown,
@@ -101,29 +101,20 @@ export const firebaseDashboardService = {
   },
 
   // Buscar dados para gráficos
-  async getChartData(userId: string, period: 'week' | 'month' | 'year' = 'month', selectedMonth?: string): Promise<ChartData[]> {
+  async getChartData(userId: string, period: 'week' | 'month' | 'year' = 'month', selectedMonth?: string, selectedYear?: string): Promise<ChartData[]> {
     try {
       
       const { startDate, endDate } = selectedMonth && period === 'month' 
         ? this.getDateRangeForMonth(selectedMonth)
-        : this.getDateRange(period);
+        : this.getDateRange(period, selectedYear);
       
       // Buscar estatísticas
       const stats = await firebaseTransactionService.getTransactionStats(userId, startDate, endDate);
-      
-      // Gerar dados para gráfico de linha (Saldo Líquido)
-      const lineChartData = await this.generateLineChartData(userId, period, selectedMonth);
       
       // Gerar dados para gráfico de pizza (Categorias)
       const pieChartData = this.generatePieChartData(stats);
       
       return [
-        {
-          id: '1',
-          type: 'line',
-          title: 'Saldo Líquido Mensal',
-          data: lineChartData,
-        },
         {
           id: '2',
           type: 'pie',
@@ -138,12 +129,21 @@ export const firebaseDashboardService = {
   },
 
   // Gerar dados para gráfico de linha
-  async generateLineChartData(userId: string, period: 'week' | 'month' | 'year', selectedMonth?: string): Promise<any[]> {
+  async generateLineChartData(userId: string, period: 'week' | 'month' | 'year', selectedMonth?: string, selectedYear?: string): Promise<any[]> {
     try {
       // Para gráfico de linha, sempre mostrar evolução de todos os meses do ano
-      const { startDate, endDate } = period === 'month' 
-        ? this.getDateRange('year')
-        : this.getDateRange(period);
+      let yearToUse = selectedYear;
+      if (period === 'month' && selectedMonth) {
+        yearToUse = selectedMonth.split('-')[0];
+      }
+      
+      if (!yearToUse) {
+        yearToUse = String(new Date().getFullYear());
+      }
+      
+      const year = parseInt(yearToUse);
+      // Sempre buscar dados do ano inteiro para o gráfico de linha
+      const { startDate, endDate } = this.getDateRange('year', yearToUse);
       
       // Buscar transações do período
       const transactions = await firebaseTransactionService.getTransactions(userId, {
@@ -154,76 +154,42 @@ export const firebaseDashboardService = {
         type: 'all'
       });
 
-      // Agrupar por período (mês/semana)
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
       const periodData = new Map();
       
-      transactions.transactions.forEach(transaction => {
-        let periodKey: string;
-        let periodLabel: string;
-        
-        if (period === 'month') {
-          const month = new Date(transaction.date).toLocaleDateString('pt-BR', { month: 'short' });
-          periodKey = month;
-          periodLabel = month;
-        } else if (period === 'week') {
-          const week = Math.ceil(new Date(transaction.date).getDate() / 7);
-          periodKey = `Sem ${week}`;
-          periodLabel = `Sem ${week}`;
-        } else {
-          // Para year, usar mês completo para melhor ordenação
-          const month = new Date(transaction.date).toLocaleDateString('pt-BR', { month: 'short' });
-          periodKey = month;
-          periodLabel = month;
-        }
-        
-        
-        if (!periodData.has(periodKey)) {
-          periodData.set(periodKey, {
-            period: periodLabel,
-            income: 0,
-            expense: 0,
-            balance: 0
-          });
-        }
-        
-        const data = periodData.get(periodKey);
-        if (transaction.type === 'income') {
-          data.income += transaction.amount;
-        } else {
-          data.expense += Math.abs(transaction.amount); // Garantir valor positivo
-        }
-        data.balance = data.income - data.expense;
-      });
-
-      // Converter para array e ordenar
-      const result = Array.from(periodData.values()).sort((a, b) => {
-        const monthOrder = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-        const indexA = monthOrder.indexOf(a.period.toLowerCase());
-        const indexB = monthOrder.indexOf(b.period.toLowerCase());
-        
-        // Se ambos os meses estão no array de ordenação, usar a ordem
-        if (indexA !== -1 && indexB !== -1) {
-          return indexA - indexB;
-        }
-        
-        // Se apenas um está no array, priorizar o que está
-        if (indexA !== -1) return -1;
-        if (indexB !== -1) return 1;
-        
-        // Se nenhum está no array, ordenar alfabeticamente
-        return a.period.localeCompare(b.period);
-      });
-
-      // Para período 'year', mostrar valores mensais individuais (não acumulados)
-      if (period === 'year') {
-        const chartData = result.map(item => ({
-          value: item.balance,
-          label: item.period,
-          dataPointText: `R$ ${item.balance.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`,
-        }));
-        
-        return chartData;
+      // Criar entrada para cada mês do ano
+      for (let i = 0; i < 12; i++) {
+        const monthKey = monthNames[i].toLowerCase();
+        periodData.set(monthKey, {
+          period: monthNames[i],
+          income: 0,
+          expense: 0,
+          balance: 0,
+          monthIndex: i // Para ordenação
+        });
       }
+      
+
+      transactions.transactions.forEach(transaction => {
+        const transactionDate = new Date(transaction.date);
+        const monthIndex = transactionDate.getMonth();
+        const monthKey = monthNames[monthIndex].toLowerCase();
+        
+        if (periodData.has(monthKey)) {
+          const data = periodData.get(monthKey);
+          if (transaction.type === 'income') {
+            data.income += transaction.amount;
+          } else {
+            data.expense += Math.abs(transaction.amount); 
+          }
+          data.balance = data.income - data.expense;
+        }
+      });
+
+      // Converter para array e ordenar por índice do mês
+      const result = Array.from(periodData.values()).sort((a, b) => {
+        return a.monthIndex - b.monthIndex;
+      });
 
       // Criar dados para o gráfico (mostrar saldo líquido)
       const chartData = result.map(item => ({
@@ -231,11 +197,6 @@ export const firebaseDashboardService = {
         label: item.period,
         dataPointText: `R$ ${item.balance.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}`,
       }));
-      
-      // Se não há dados reais, retornar array vazio
-      if (chartData.length === 0) {
-        return [];
-      }
       
       return chartData;
     } catch (error) {
@@ -271,7 +232,7 @@ export const firebaseDashboardService = {
   },
 
   // Calcular range de datas baseado no período
-  getDateRange(period: 'week' | 'month' | 'year'): { startDate: string; endDate: string } {
+  getDateRange(period: 'week' | 'month' | 'year', selectedYear?: string): { startDate: string; endDate: string } {
     const now = new Date();
     let startDate: Date;
     let endDate = new Date(now);
@@ -286,8 +247,9 @@ export const firebaseDashboardService = {
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         break;
       case 'year':
-        startDate = new Date(now.getFullYear(), 0, 1);
-        endDate = new Date(now.getFullYear(), 11, 31);
+        const year = selectedYear ? parseInt(selectedYear) : now.getFullYear();
+        startDate = new Date(year, 0, 1);
+        endDate = new Date(year, 11, 31, 23, 59, 59);
         break;
       default:
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);

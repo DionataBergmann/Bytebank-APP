@@ -6,23 +6,25 @@ export class DashboardUseCases {
   async getDashboardData(
     userId: string,
     period: 'week' | 'month' | 'year' = 'month',
-    selectedMonth: string
+    selectedMonth: string,
+    selectedYear?: string
   ) {
     if (!userId) {
       throw new Error('ID do usuário é obrigatório');
     }
-    return this.repository.getDashboardData(userId, period, selectedMonth);
+    return this.repository.getDashboardData(userId, period, selectedMonth, selectedYear);
   }
 
   async getChartData(
     userId: string,
     period: 'week' | 'month' | 'year' = 'month',
-    selectedMonth: string
+    selectedMonth: string,
+    selectedYear?: string
   ) {
     if (!userId) {
       throw new Error('ID do usuário é obrigatório');
     }
-    return this.repository.getChartData(userId, period, selectedMonth);
+    return this.repository.getChartData(userId, period, selectedMonth, selectedYear);
   }
 }
 

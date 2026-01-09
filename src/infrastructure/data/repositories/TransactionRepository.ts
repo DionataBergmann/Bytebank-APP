@@ -22,7 +22,10 @@ export class TransactionRepository implements ITransactionRepository {
     // Tentar recuperar do cache
     const cached = await CacheService.get<{ transactions: Transaction[]; lastDoc?: any; hasMore: boolean }>(cacheKey);
     if (cached) {
-      return cached;
+      if (cached.transactions.length === 0 && filters && (filters.startDate || filters.endDate || filters.category || filters.type !== 'all')) {
+      } else {
+        return cached;
+      }
     }
 
     // Se não estiver em cache, buscar do serviço
